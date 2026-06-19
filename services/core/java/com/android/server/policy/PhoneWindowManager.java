@@ -717,7 +717,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     boolean mSwapCapacitiveKeys = false;
     ANBIHandler mANBIHandler;
     private boolean mANBIEnabled;
-    
+
     private ShakeGestureService mShakeGestures;
 
     // Tracks user-customisable behavior for certain key events
@@ -1877,6 +1877,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     }
 
     private void assistPress() {
+            if (InfinitiPlusKey.isInfiniti()) {
+                cancelPreloadRecentApps();
+                InfinitiPlusKey.fireShortPress(mContext);
+                return;
+            }
+
         if (!keyguardOn() && mAssistPressAction != Action.NOTHING) {
             if (mAssistPressAction != Action.APP_SWITCH) {
                 cancelPreloadRecentApps();
@@ -1892,6 +1898,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     }
 
     private void assistLongPress() {
+            if (InfinitiPlusKey.isInfiniti()) {
+                cancelPreloadRecentApps();
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS,
+                    "Plus Key - Long Press");
+                InfinitiPlusKey.fireLongPress(mContext);
+                return;
+            }
+
         if (!keyguardOn() && mAssistLongPressAction != Action.NOTHING) {
             if (mAssistLongPressAction != Action.APP_SWITCH) {
                 cancelPreloadRecentApps();
@@ -3179,7 +3193,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         @Override
         boolean supportLongPress() {
-            return mAssistLongPressAction != Action.NOTHING;
+            return InfinitiPlusKey.isInfiniti()
+                    || mAssistLongPressAction != Action.NOTHING;
         }
 
         @Override
@@ -5923,6 +5938,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     }
 
     private void handleKeyGesture(KeyEvent event, boolean interactive, boolean defaultDisplayOn) {
+        if (InfinitiPlusKey.isInfiniti()
+                && event.getKeyCode() == KeyEvent.KEYCODE_ASSIST) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                InfinitiPlusKey.fireCameraTriggerDown(mContext);
+            } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                InfinitiPlusKey.fireCameraTriggerUp(mContext);
+            }
+        }
+
         if (event.getKeyCode() == KEYCODE_POWER && event.getAction() == KeyEvent.ACTION_DOWN) {
             mPowerKeyHandled = handleCameraGesture(event, interactive);
             if (mPowerKeyHandled) {
@@ -7117,7 +7141,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         if (mVrManagerInternal != null) {
             mVrManagerInternal.addPersistentVrModeStateListener(mPersistentVrModeListener);
         }
-        
+
         mShakeGestures = ShakeGestureService.getInstance(mContext, new ShakeGestureService.ShakeGesturesCallbacks() {
             @Override
             public void onShake() {

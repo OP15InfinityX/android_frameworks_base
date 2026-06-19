@@ -163,6 +163,7 @@ java_library_static {
         "framework-tethering.stubs.module_lib",
         "keepanno-annotations",
         "monet",
+        "oplus-fwk",
         "power_hint_flags_lib",
         "service-art.stubs.system_server",
         "service-permission.stubs.system_server",

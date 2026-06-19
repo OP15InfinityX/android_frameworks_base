@@ -1897,6 +1897,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     }
 
     private void assistPress() {
+        if (InfinitiPlusKey.isInfiniti()) {
+            cancelPreloadRecentApps();
+            InfinitiPlusKey.fireShortPress(mContext);
+            return;
+        }
+
         if (canPerformKeyAction(mAssistPressAction)) {
             if (mAssistPressAction != Action.APP_SWITCH) {
                 cancelPreloadRecentApps();
@@ -1912,6 +1918,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     }
 
     private void assistLongPress() {
+        if (InfinitiPlusKey.isInfiniti()) {
+            cancelPreloadRecentApps();
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS,
+                    "Plus Key - Long Press");
+            InfinitiPlusKey.fireLongPress(mContext);
+            return;
+        }
+
         if (canPerformKeyAction(mAssistLongPressAction)) {
             if (mAssistLongPressAction != Action.APP_SWITCH) {
                 cancelPreloadRecentApps();
@@ -3202,7 +3216,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         @Override
         public boolean supportLongPress() {
-            return mAssistLongPressAction != Action.NOTHING;
+            return InfinitiPlusKey.isInfiniti()
+                    || mAssistLongPressAction != Action.NOTHING;
         }
 
         @Override
@@ -5947,6 +5962,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     }
 
     private void handleKeyGesture(KeyEvent event, boolean interactive, int defaultDisplayState) {
+        if (InfinitiPlusKey.isInfiniti()
+                && event.getKeyCode() == KeyEvent.KEYCODE_ASSIST) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                InfinitiPlusKey.fireCameraTriggerDown(mContext);
+            } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                InfinitiPlusKey.fireCameraTriggerUp(mContext);
+            }
+        }
+
         if (event.getKeyCode() == KEYCODE_POWER && event.getAction() == KeyEvent.ACTION_DOWN) {
             mPowerKeyHandled = handleCameraGesture(event, interactive);
             if (mPowerKeyHandled) {

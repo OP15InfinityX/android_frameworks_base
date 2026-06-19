@@ -320,6 +320,7 @@ import com.android.server.wallpapereffectsgeneration.WallpaperEffectsGenerationM
 import com.android.server.wearable.WearableSensingManagerService;
 import com.android.server.webkit.WebViewUpdateService;
 import com.android.server.wm.ActivityTaskManagerService;
+import com.android.server.wm.OplusAccessControlManagerService;
 import com.android.server.wm.WindowManagerGlobalLock;
 import com.android.server.wm.WindowManagerService;
 
@@ -1047,6 +1048,9 @@ public final class SystemServer implements Dumpable {
             }
             startBootstrapServices(t);
             startCoreServices(t);
+            t.traceBegin("StartOplusSecurityPermissionService");
+            mSystemServiceManager.startService(OplusSecurityPermissionLifecycle.class);
+            t.traceEnd();
             startOtherServices(t);
             startApexServices(t);
             // Only update the timeout after starting all the services so that we use
@@ -1680,6 +1684,13 @@ public final class SystemServer implements Dumpable {
             mSystemServiceManager.startService(UPDATABLE_DEVICE_CONFIG_SERVICE_CLASS);
             // Now that SettingsProvider is ready, reactivate SQLiteCompatibilityWalFlags
             SQLiteCompatibilityWalFlags.reset();
+            t.traceEnd();
+
+            t.traceBegin("StartOplusAccessControlManagerService");
+            OplusAccessControlManagerService oplusAccessControl =
+                    new OplusAccessControlManagerService(context);
+            ServiceManager.addService("oplus_accesscontrol", oplusAccessControl);
+            oplusAccessControl.onSystemReady();
             t.traceEnd();
 
             // Records errors and logs, for example wtf()

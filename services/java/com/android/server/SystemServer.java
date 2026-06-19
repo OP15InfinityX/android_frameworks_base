@@ -1697,6 +1697,13 @@ public final class SystemServer implements Dumpable {
             SQLiteCompatibilityWalFlags.reset();
             t.traceEnd();
 
+            t.traceBegin("StartOplusAccessControlManagerService");
+            OplusAccessControlManagerService oplusAccessControl =
+                    new OplusAccessControlManagerService(context);
+            ServiceManager.addService("oplus_accesscontrol", oplusAccessControl);
+            oplusAccessControl.onSystemReady();
+            t.traceEnd();
+
             if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_NEURAL_PROCESSING_UNIT)
                     && com.android.npumanager.Flags.npumanagerEnabled()) {
                 t.traceBegin("StartNpuManagerService");

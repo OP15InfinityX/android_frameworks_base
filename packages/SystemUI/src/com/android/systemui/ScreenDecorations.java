@@ -510,7 +510,8 @@ public class ScreenDecorations implements
         mDebugRoundedCornerFactory =
                 new RoundedCornerDecorProviderFactory(mDebugRoundedCornerDelegate);
         mCutoutFactory = getCutoutFactory();
-        mHwcScreenDecorationSupport = mContext.getDisplay().getDisplayDecorationSupport();
+        mHwcScreenDecorationSupport = shouldUseHwcScreenDecorations()
+                ? mContext.getDisplay().getDisplayDecorationSupport() : null;
         updateHwLayerRoundedCornerDrawable();
         setupDecorations();
         setupCameraListener();
@@ -568,7 +569,8 @@ public class ScreenDecorations implements
                 if (!Objects.equals(newUniqueId, mDisplayUniqueId)) {
                     mDisplayUniqueId = newUniqueId;
                     final DisplayDecorationSupport newScreenDecorationSupport =
-                            mContext.getDisplay().getDisplayDecorationSupport();
+                            shouldUseHwcScreenDecorations()
+                                    ? mContext.getDisplay().getDisplayDecorationSupport() : null;
 
                     mRoundedCornerResDelegate.updateDisplayUniqueId(newUniqueId, null);
 
@@ -741,6 +743,27 @@ public class ScreenDecorations implements
     protected CutoutDecorProviderFactory getCutoutFactory() {
         return new CutoutDecorProviderFactory(mContext.getResources(),
                 mContext.getDisplay());
+    }
+
+    private boolean shouldUseHwcScreenDecorations() {
+        if (isInfiniti()) {
+            return false;
+        }
+        return !mContext.getResources().getBoolean(R.bool.config_disableHwcScreenDecorations);
+    }
+
+    private static boolean isInfiniti() {
+        return isInfiniti(SystemProperties.get("ro.product.device", ""))
+                || isInfiniti(SystemProperties.get("ro.product.vendor.device", ""))
+                || isInfiniti(SystemProperties.get("ro.vendor.product.device", ""))
+                || isInfiniti(SystemProperties.get("ro.lineage.device", ""))
+                || isInfiniti(SystemProperties.get("ro.evolution.device", ""));
+    }
+
+    private static boolean isInfiniti(String device) {
+        return "infiniti".equalsIgnoreCase(device)
+                || "OP60FFL1".equalsIgnoreCase(device)
+                || "OP611FL1".equalsIgnoreCase(device);
     }
 
     @VisibleForTesting

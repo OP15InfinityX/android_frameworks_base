@@ -259,12 +259,14 @@ public class AppControlController {
             return;
         }
         int uid = getPackageUid(packageName);
+        boolean changed;
         synchronized (this) {
-            if (mLockedPackages.add(packageName)) {
-                saveConfigToSettings();
-                if (uid >= 0) {
-                    broadcastPackageChange(packageName, uid);
-                }
+            changed = mLockedPackages.add(packageName);
+        }
+        if (changed) {
+            saveConfigToSettings();
+            if (uid >= 0) {
+                broadcastPackageChange(packageName, uid);
             }
         }
         Slog.d(TAG, "addLockedApp: " + packageName);
@@ -273,12 +275,14 @@ public class AppControlController {
     public void removeLockedApp(String packageName) {
         if (TextUtils.isEmpty(packageName)) return;
         int uid = getPackageUid(packageName);
+        boolean changed;
         synchronized (this) {
-            if (mLockedPackages.remove(packageName)) {
-                saveConfigToSettings();
-                if (uid >= 0) {
-                    broadcastPackageChange(packageName, uid);
-                }
+            changed = mLockedPackages.remove(packageName);
+        }
+        if (changed) {
+            saveConfigToSettings();
+            if (uid >= 0) {
+                broadcastPackageChange(packageName, uid);
             }
         }
         Slog.d(TAG, "removeLockedApp: " + packageName);
@@ -291,14 +295,15 @@ public class AppControlController {
             return;
         }
         int uid = getPackageUid(packageName);
+        boolean changed;
         synchronized (this) {
-            boolean changed = hidden ? mHiddenPackages.add(packageName)
-                                     : mHiddenPackages.remove(packageName);
-            if (changed) {
-                saveConfigToSettings();
-                if (uid >= 0) {
-                    broadcastPackageChange(packageName, uid);
-                }
+            changed = hidden ? mHiddenPackages.add(packageName)
+                    : mHiddenPackages.remove(packageName);
+        }
+        if (changed) {
+            saveConfigToSettings();
+            if (uid >= 0) {
+                broadcastPackageChange(packageName, uid);
             }
         }
         Slog.d(TAG, "setPackageHidden: " + packageName + " hidden=" + hidden);
@@ -306,24 +311,26 @@ public class AppControlController {
 
     public void setPackageSandboxed(String packageName, boolean sandboxed) {
         if (TextUtils.isEmpty(packageName)) return;
+        boolean changed;
         synchronized (this) {
-            boolean changed = sandboxed ? mSandboxedPackages.add(packageName)
-                                       : mSandboxedPackages.remove(packageName);
-            if (changed) {
-                saveConfigToSettings();
-            }
+            changed = sandboxed ? mSandboxedPackages.add(packageName)
+                    : mSandboxedPackages.remove(packageName);
+        }
+        if (changed) {
+            saveConfigToSettings();
         }
         Slog.d(TAG, "setPackageSandboxed: " + packageName + " sandboxed=" + sandboxed);
     }
 
     public void setDevOptionsHidden(String packageName, boolean hidden) {
         if (TextUtils.isEmpty(packageName)) return;
+        boolean changed;
         synchronized (this) {
-            boolean changed = hidden ? mHideDevOptsPackages.add(packageName)
-                                    : mHideDevOptsPackages.remove(packageName);
-            if (changed) {
-                saveConfigToSettings();
-            }
+            changed = hidden ? mHideDevOptsPackages.add(packageName)
+                    : mHideDevOptsPackages.remove(packageName);
+        }
+        if (changed) {
+            saveConfigToSettings();
         }
         Slog.d(TAG, "setDevOptionsHidden: " + packageName + " hidden=" + hidden);
     }
@@ -460,8 +467,8 @@ public class AppControlController {
             } else {
                 mGidRestrictions.put(packageName, gids);
             }
-            saveConfigToSettings();
         }
+        saveConfigToSettings();
     }
 
     public int[] getRestrictedGids(String packageName) {
@@ -488,9 +495,9 @@ public class AppControlController {
 
     public void setSpoofSettingEnabled(String packageName, String settingKey, boolean enabled) {
         if (TextUtils.isEmpty(packageName) || TextUtils.isEmpty(settingKey)) return;
+        boolean changed;
         synchronized (this) {
             Set<String> settings = mSpoofSettingsMap.get(packageName);
-            boolean changed;
             if (enabled) {
                 if (settings == null) {
                     settings = new HashSet<>();
@@ -504,7 +511,9 @@ public class AppControlController {
                     mSpoofSettingsMap.remove(packageName);
                 }
             }
-            if (changed) saveConfigToSettings();
+        }
+        if (changed) {
+            saveConfigToSettings();
         }
     }
 
@@ -554,10 +563,13 @@ public class AppControlController {
 
     public void setDataIsolationEnabled(String packageName, boolean enabled) {
         if (TextUtils.isEmpty(packageName)) return;
+        boolean changed;
         synchronized (this) {
-            boolean changed = enabled ? mDataIsolationPackages.add(packageName)
-                                      : mDataIsolationPackages.remove(packageName);
-            if (changed) saveConfigToSettings();
+            changed = enabled ? mDataIsolationPackages.add(packageName)
+                    : mDataIsolationPackages.remove(packageName);
+        }
+        if (changed) {
+            saveConfigToSettings();
         }
     }
 }

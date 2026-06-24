@@ -23,6 +23,7 @@ public class DisplayRefreshRateHelper {
 
     private static final float DEFAULT_REFRESH_RATE = 60f;
     private static final float NO_MIN_REFRESH_RATE = 0f;
+    private static final int LTPO_LOW_MIN_REFRESH_RATE = 30;
 
     private static DisplayRefreshRateHelper sInstance = null;
 
@@ -63,7 +64,7 @@ public class DisplayRefreshRateHelper {
         final float defaultRefreshRate = refreshRate != 0 ? (float) refreshRate : NO_MIN_REFRESH_RATE;
         final int ret = (int) Settings.System.getFloatForUser(mContext.getContentResolver(),
                 MIN_REFRESH_RATE, defaultRefreshRate, UserHandle.USER_SYSTEM);
-        if (ret == NO_MIN_REFRESH_RATE) {
+        if (ret == NO_MIN_REFRESH_RATE || ret == LTPO_LOW_MIN_REFRESH_RATE) {
             return ret;
         }
         if (mRefreshRateList.size() != 0 && !mRefreshRateList.contains(ret)) {
@@ -107,7 +108,7 @@ public class DisplayRefreshRateHelper {
     }
 
     public boolean isRefreshRateValid(int refreshRate) {
-        if (refreshRate == NO_MIN_REFRESH_RATE) {
+        if (refreshRate == NO_MIN_REFRESH_RATE || refreshRate == LTPO_LOW_MIN_REFRESH_RATE) {
             return true;
         }
         return mRefreshRateList.contains(refreshRate);

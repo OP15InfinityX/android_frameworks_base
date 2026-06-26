@@ -37,7 +37,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
-import android.os.SystemProperties;
 import android.os.Trace;
 import android.view.Surface;
 
@@ -910,9 +909,7 @@ public class ImageReader implements AutoCloseable {
             throw new IllegalStateException("Image was already detached from this ImageReader");
         }
 
-        if (!SystemProperties.getBoolean("persist.sys.cam.skip_detach_image", false)) {
-            nativeDetachImage(image, mDetachThrowsIseOnly);
-        }
+        nativeDetachImage(image, mDetachThrowsIseOnly);
         si.clearSurfacePlanes();
         si.mPlanes = null;
         si.setDetached(true);

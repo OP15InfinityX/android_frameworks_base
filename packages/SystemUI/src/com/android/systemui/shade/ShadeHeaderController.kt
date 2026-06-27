@@ -169,6 +169,13 @@ constructor(
         internal val QS_HEADER_CLOCK_STYLE =
             "system:" + "qs_header_clock_style"
 
+        private const val STATUSBAR_EXPANDED_EXTRA_PADDING_START =
+            "system:" + "statusbar_expanded_extra_padding_start"
+        private const val STATUSBAR_EXPANDED_EXTRA_PADDING_TOP =
+            "system:" + "statusbar_expanded_extra_padding_top"
+        private const val STATUSBAR_EXPANDED_EXTRA_PADDING_END =
+            "system:" + "statusbar_expanded_extra_padding_end"
+
         private fun Int.stateToString() =
             when (this) {
                 QQS_HEADER_CONSTRAINT -> "QQS Header"
@@ -181,6 +188,9 @@ constructor(
     var shadeCollapseAction: Runnable? = null
 
     private var qsClockStyle = 0
+    private var expandedExtraPaddingStartDp = 0
+    private var expandedExtraPaddingTopDp = 0
+    private var expandedExtraPaddingEndDp = 0
 
     private lateinit var iconManager: TintedIconManager
     private lateinit var carrierIconSlots: List<String>
@@ -338,6 +348,7 @@ constructor(
                         R.dimen.hover_system_icons_container_padding_bottom
                     ),
                 )
+                updateResources()
             }
 
             override fun onDensityOrFontScaleChanged() {
@@ -517,6 +528,9 @@ constructor(
             statusOverlayHoverListenerFactory.createListener(systemIconsHoverContainer)
         )
         tunerService.addTunable(this, QS_HEADER_CLOCK_STYLE)
+        tunerService.addTunable(this, STATUSBAR_EXPANDED_EXTRA_PADDING_START)
+        tunerService.addTunable(this, STATUSBAR_EXPANDED_EXTRA_PADDING_TOP)
+        tunerService.addTunable(this, STATUSBAR_EXPANDED_EXTRA_PADDING_END)
     }
 
     override fun onViewDetached() {
@@ -537,6 +551,24 @@ constructor(
             QS_HEADER_CLOCK_STYLE -> {
                 qsClockStyle = TunerService.parseInteger(value, 0)
                 updateQsHeaderClockDateVisibility()
+            }
+
+            STATUSBAR_EXPANDED_EXTRA_PADDING_START -> {
+                expandedExtraPaddingStartDp = TunerService.parseInteger(value, 0)
+                updateResources()
+                lastInsets?.let { updateConstraintsForInsets(header, it) }
+            }
+
+            STATUSBAR_EXPANDED_EXTRA_PADDING_TOP -> {
+                expandedExtraPaddingTopDp = TunerService.parseInteger(value, 0)
+                updateResources()
+                lastInsets?.let { updateConstraintsForInsets(header, it) }
+            }
+
+            STATUSBAR_EXPANDED_EXTRA_PADDING_END -> {
+                expandedExtraPaddingEndDp = TunerService.parseInteger(value, 0)
+                updateResources()
+                lastInsets?.let { updateConstraintsForInsets(header, it) }
             }
 
             else -> return
@@ -641,7 +673,12 @@ constructor(
             changes += combinedShadeHeadersConstraintManager.emptyCutoutConstraints()
         }
 
-        view.setPadding(view.paddingLeft, sbInsets.top, view.paddingRight, view.paddingBottom)
+        view.setPadding(
+            view.paddingLeft,
+            sbInsets.top + expandedExtraPaddingTopDp.dpToPx(),
+            view.paddingRight,
+            view.paddingBottom,
+        )
         view.updateAllConstraints(changes)
         updateBatteryMode()
     }
@@ -752,10 +789,25 @@ constructor(
 
     private fun updateResources() {
         val padding = resources.getDimensionPixelSize(R.dimen.qs_panel_padding)
-        header.setPadding(padding, header.paddingTop, padding, header.paddingBottom)
+        val startPadding =
+            if (largeScreenActive) {
+                resources.getDimensionPixelSize(R.dimen.large_screen_shade_header_left_padding)
+            } else {
+                padding
+            }
+        header.setPadding(
+            startPadding + expandedExtraPaddingStartDp.dpToPx(),
+            header.paddingTop,
+            padding + expandedExtraPaddingEndDp.dpToPx(),
+            header.paddingBottom,
+        )
         updateQQSPaddings()
         updateQsHeaderClockDateVisibility()
         qsBatteryModeController.updateResources()
+    }
+
+    private fun Int.dpToPx(): Int {
+        return (this * resources.displayMetrics.density).toInt()
     }
 
     private fun updateQQSPaddings() {

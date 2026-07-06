@@ -111,6 +111,7 @@ import android.os.ResultReceiver;
 import android.os.ShellCallback;
 import android.os.ShellCommand;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.Trace;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -232,6 +233,7 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
     private static final Integer VIRTUAL_STYLUS_ID_FOR_TEST = 999999;
     static final boolean DEBUG = false;
     static final String TAG = "InputMethodManagerService";
+    private static final String TOUCH_REPORT_RATE_PROP = "sys.touch.report_rate";
 
     /**
      * Timeout in milliseconds in {@link #systemRunning()} to make sure that users are initialized
@@ -2960,8 +2962,15 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
         }
         // If user is a profile, use preference of its parent profile.
         final int profileParentUserId = mUserManagerInternal.getProfileParentId(mCurrentImeUserId);
-        final boolean enabled = LineageSettings.System.getIntForUser(mContext.getContentResolver(),
-                LineageSettings.System.HIGH_TOUCH_POLLING_RATE_ENABLE, 0, profileParentUserId) != 0;
+        final int mode = LineageSettings.System.getIntForUser(mContext.getContentResolver(),
+                LineageSettings.System.HIGH_TOUCH_POLLING_RATE_ENABLE, 0, profileParentUserId);
+        final int reportRateMode = mode == 1 ? 3 : mode;
+        final boolean enabled = reportRateMode != 0;
+        try {
+            SystemProperties.set(TOUCH_REPORT_RATE_PROP, String.valueOf(reportRateMode));
+        } catch (RuntimeException e) {
+            Slog.e(TAG, "Failed to restore touch polling mode: " + reportRateMode, e);
+        }
         mLineageHardware.set(LineageHardwareManager.FEATURE_HIGH_TOUCH_POLLING_RATE, enabled);
     }
 

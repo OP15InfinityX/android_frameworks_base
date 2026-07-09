@@ -26,6 +26,7 @@ import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.database.ContentObserver;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -80,6 +81,8 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     protected static final String ACTION_AOD_BRIGHTNESS =
             "com.android.systemui.doze.AOD_BRIGHTNESS";
     protected static final String BRIGHTNESS_BUCKET = "brightness_bucket";
+    private static final String AOD_LOW_BRIGHTNESS = "aod_low_brightness";
+    private static final String AOD_HIGH_BRIGHTNESS = "aod_high_brightness";
 
     /**
      * Just before the screen times out from user inactivity, DisplayPowerController dims the screen
@@ -101,6 +104,7 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     private final SystemSettings mSystemSettings;
     private final WallpaperInteractor mWallpaperInteractor;
     private final CoroutineScope mScope;
+    private final ContentObserver mAodBrightnessObserver;
     private Job mWallpaperSupportsAmbientModeJob = null;
     private boolean mWallpaperSupportsAmbientMode;
     private final float[] mSensorToBrightness;
@@ -179,6 +183,18 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         mSensorToWallpaperScrimOpacity = alwaysOnDisplayPolicy.wallpaperDimmingScrimArray;
 
         mDevicePostureController.addCallback(mDevicePostureCallback);
+        mAodBrightnessObserver = new ContentObserver(mHandler) {
+            @Override
+            public void onChange(boolean selfChange) {
+                updateBrightnessAndReady(true /* force */);
+            }
+        };
+        mContext.getContentResolver().registerContentObserver(
+                Settings.System.getUriFor(AOD_LOW_BRIGHTNESS), false,
+                mAodBrightnessObserver, UserHandle.USER_ALL);
+        mContext.getContentResolver().registerContentObserver(
+                Settings.System.getUriFor(AOD_HIGH_BRIGHTNESS), false,
+                mAodBrightnessObserver, UserHandle.USER_ALL);
     }
 
     @Override
@@ -217,6 +233,7 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         stopListeningForWallpaperSupportsAmbientMode();
         setLightSensorEnabled(false);
         mDevicePostureController.removeCallback(mDevicePostureCallback);
+        mContext.getContentResolver().unregisterContentObserver(mAodBrightnessObserver);
         if (SceneContainerFlag.isEnabled()) {
             mDozeHost.setAodDimmingScrim(0f);
             mDozeHost.setAodWallpaperDimmingScrim(0f);
@@ -315,7 +332,18 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         if (sensorValue < 0 || sensorValue >= mSensorToBrightness.length) {
             return -1;
         }
-        return mSensorToBrightness[sensorValue];
+        float brightness = mSensorToBrightness[sensorValue];
+        if (mSensorToBrightness.length == 2) {
+            int defaultValue = BrightnessSynchronizer.brightnessFloatToInt(brightness);
+            int value = Settings.System.getIntForUser(
+                    mContext.getContentResolver(),
+                    sensorValue == 0 ? AOD_LOW_BRIGHTNESS : AOD_HIGH_BRIGHTNESS,
+                    defaultValue,
+                    UserHandle.USER_CURRENT);
+            brightness = BrightnessSynchronizer.brightnessIntToFloat(
+                    Math.max(1, Math.min(255, value)));
+        }
+        return brightness;
     }
 
     @Override

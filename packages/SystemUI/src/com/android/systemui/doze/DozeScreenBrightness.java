@@ -23,6 +23,7 @@ import static com.android.systemui.keyguard.WakefulnessLifecycle.WAKEFULNESS_GOI
 import static java.lang.Integer.max;
 
 import android.annotation.SuppressLint;
+import android.app.AlarmManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -54,6 +55,7 @@ import com.android.systemui.keyguard.WakefulnessLifecycle;
 import com.android.systemui.scene.shared.flag.SceneContainerFlag;
 import com.android.systemui.statusbar.phone.DozeParameters;
 import com.android.systemui.statusbar.policy.DevicePostureController;
+import com.android.systemui.util.AlarmTimeout;
 import com.android.systemui.util.kotlin.JavaAdapterKt;
 import com.android.systemui.util.sensors.AsyncSensorManager;
 import com.android.systemui.util.settings.SystemSettings;
@@ -86,7 +88,8 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     private static final String AOD_LOW_BRIGHTNESS = "aod_low_brightness";
     private static final String AOD_HIGH_BRIGHTNESS = "aod_high_brightness";
     private static final String AOD_PICKUP_BRIGHTNESS_BOOST = "aod_pickup_brightness_boost";
-    private static final long AOD_PICKUP_BRIGHTNESS_BOOST_TIMEOUT_MS = 20_000;
+    private static final long AOD_PICKUP_BRIGHTNESS_BOOST_TIMEOUT_MS = 7_000;
+    private static final long AOD_PICKUP_BRIGHTNESS_REARM_DELAY_MS = 3_000;
 
     /**
      * Just before the screen times out from user inactivity, DisplayPowerController dims the screen
@@ -102,6 +105,7 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     private final Sensor mPickupSensor;
     private final boolean mPickupSensorUsesTrigger;
     private final Sensor mStationarySensor;
+    private final PowerManager.WakeLock mPickupBrightnessWakeLock;
     private final DisplayManager mDisplayManager;
     private final Optional<Sensor>[] mLightSensorOptional; // light sensors to use per posture
     private final WakefulnessLifecycle mWakefulnessLifecycle;
@@ -132,7 +136,8 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     private boolean mPickupSensorRegisteredAsListener;
     private boolean mStationarySensorRegistered;
 
-    private final Runnable mPickupBrightnessBoostTimeout = this::finishPickupBrightnessBoost;
+    private final AlarmTimeout mPickupBrightnessBoostTimeout;
+    private final Runnable mPickupSensorRearm = this::requestPickupSensor;
 
     private final TriggerEventListener mPickupListener = new TriggerEventListener() {
         @Override
@@ -174,6 +179,7 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
             SystemSettings systemSettings,
             DisplayManager displayManager,
             WallpaperInteractor wallpaperInteractor,
+            AlarmManager alarmManager,
             @Application CoroutineScope scope
     ) {
         mContext = context;
@@ -187,6 +193,10 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         mPickupSensorUsesTrigger = pickupSensor != null
                 && pickupSensor.getType() == Sensor.TYPE_PICK_UP_GESTURE;
         mStationarySensor = sensorManager.getDefaultSensor(Sensor.TYPE_STATIONARY_DETECT);
+        mPickupBrightnessWakeLock = context.getSystemService(PowerManager.class)
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+                        "DozeScreenBrightness:PickupBrightnessBoost");
+        mPickupBrightnessWakeLock.setReferenceCounted(false);
         mDisplayManager = displayManager;
         mLightSensorOptional = lightSensorOptional;
         mDevicePostureController = devicePostureController;
@@ -195,6 +205,8 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         mDozeParameters = dozeParameters;
         mDozeHost = host;
         mHandler = handler;
+        mPickupBrightnessBoostTimeout = new AlarmTimeout(alarmManager,
+                this::finishPickupBrightnessBoost, "AodPickupBrightnessBoost", mHandler);
         mDozeLog = dozeLog;
         mSystemSettings = systemSettings;
         mWallpaperInteractor = wallpaperInteractor;
@@ -345,25 +357,30 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         }
 
         mPickupBrightnessBoosted = true;
+        mPickupBrightnessWakeLock.acquire(AOD_PICKUP_BRIGHTNESS_BOOST_TIMEOUT_MS
+                + AOD_PICKUP_BRIGHTNESS_REARM_DELAY_MS);
         updateBrightnessAndReady(true /* force */);
 
-        mHandler.removeCallbacks(mPickupBrightnessBoostTimeout);
-        mHandler.postDelayed(mPickupBrightnessBoostTimeout,
-                AOD_PICKUP_BRIGHTNESS_BOOST_TIMEOUT_MS);
+        mPickupBrightnessBoostTimeout.schedule(AOD_PICKUP_BRIGHTNESS_BOOST_TIMEOUT_MS,
+                AlarmTimeout.MODE_RESCHEDULE_IF_SCHEDULED);
         requestStationarySensor();
     }
 
     private void finishPickupBrightnessBoost() {
-        mHandler.removeCallbacks(mPickupBrightnessBoostTimeout);
+        mPickupBrightnessBoostTimeout.cancel();
         cancelStationarySensor();
+        if (mPickupBrightnessWakeLock.isHeld()) {
+            mPickupBrightnessWakeLock.release();
+        }
         if (mPickupBrightnessBoosted) {
             mPickupBrightnessBoosted = false;
             updateBrightnessAndReady(true /* force */);
         }
-        requestPickupSensor();
+        schedulePickupSensorRearm();
     }
 
     private void requestPickupSensor() {
+        mHandler.removeCallbacks(mPickupSensorRearm);
         if (!isPickupBrightnessBoostEnabled()
                 || !mRegistered
                 || mPickupBrightnessBoosted
@@ -381,7 +398,20 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         }
     }
 
+    private void schedulePickupSensorRearm() {
+        mHandler.removeCallbacks(mPickupSensorRearm);
+        if (!isPickupBrightnessBoostEnabled()
+                || !mRegistered
+                || mPickupBrightnessBoosted
+                || mPickupSensor == null
+                || mPickupSensorRegistered) {
+            return;
+        }
+        mHandler.postDelayed(mPickupSensorRearm, AOD_PICKUP_BRIGHTNESS_REARM_DELAY_MS);
+    }
+
     private void cancelPickupSensor() {
+        mHandler.removeCallbacks(mPickupSensorRearm);
         if (!mPickupSensorRegistered) {
             return;
         }

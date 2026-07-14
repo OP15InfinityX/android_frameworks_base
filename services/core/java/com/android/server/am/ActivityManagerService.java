@@ -6527,6 +6527,9 @@ public class ActivityManagerService extends IActivityManager.Stub
     @GuardedBy(anyOf = {"this", "mProcLock"})
     int getAppStartModeLOSP(int uid, String packageName, int packageTargetSdk,
             int callingPid, boolean alwaysRestrict, boolean disabledOnly, boolean forcedStandby) {
+        if ("com.oplus.cosa".equals(packageName)) {
+            return ActivityManager.APP_START_MODE_NORMAL;
+        }
         if (mInternal.isPendingTopUid(uid)) {
             return ActivityManager.APP_START_MODE_NORMAL;
         }

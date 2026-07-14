@@ -555,6 +555,9 @@ public class DisplayPolicy {
 
                 @Override
                 public void onSwipeFromRight() {
+                    if (showOplusGameSpaceToolBox()) {
+                        return;
+                    }
                     if (isGamingGestureLocked()) {
                         return;
                     }
@@ -573,6 +576,9 @@ public class DisplayPolicy {
 
                 @Override
                 public void onSwipeFromLeft() {
+                    if (showOplusGameSpaceToolBox()) {
+                        return;
+                    }
                     if (isGamingGestureLocked()) {
                         return;
                     }
@@ -587,6 +593,16 @@ public class DisplayPolicy {
                         }
                     }
                     excludedRegion.recycle();
+                }
+
+                private boolean showOplusGameSpaceToolBox() {
+                    final ActivityRecord top = mDisplayContent.topRunningActivity();
+                    final String topPackage = top != null && top.packageName != null
+                            ? top.packageName : null;
+                    return OplusGameSpaceToolBoxManager.getInstance().gameModeShowToolBox(
+                            mContext, mHandler, mDisplayContent.getDisplay(),
+                            mSystemGestures.getLastSwipeX(), mSystemGestures.getLastSwipeY(),
+                            topPackage);
                 }
 
                 @Override

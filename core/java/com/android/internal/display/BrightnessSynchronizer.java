@@ -54,6 +54,7 @@ public class BrightnessSynchronizer {
     private static final long WAIT_FOR_RESPONSE_MILLIS = 200;
 
     private static final int MSG_RUN_UPDATE = 1;
+    private static final int OPLUS_BRIGHTNESS_ON = 8191;
 
     // The tolerance within which we consider brightness values approximately equal to eachother.
     public static final float EPSILON = 0.0001f;
@@ -144,7 +145,8 @@ public class BrightnessSynchronizer {
             final float minFloat = PowerManager.BRIGHTNESS_MIN;
             final float maxFloat = PowerManager.BRIGHTNESS_MAX;
             final float minInt = PowerManager.BRIGHTNESS_OFF + 1;
-            final float maxInt = PowerManager.BRIGHTNESS_ON;
+            final float maxInt = isOplusBrightnessInt(brightnessInt)
+                    ? OPLUS_BRIGHTNESS_ON : PowerManager.BRIGHTNESS_ON;
             return MathUtils.constrainedMap(minFloat, maxFloat, minInt, maxInt, brightnessInt);
         }
     }
@@ -286,6 +288,10 @@ public class BrightnessSynchronizer {
         }
     }
 
+    private static boolean isOplusBrightnessInt(int brightnessInt) {
+        return brightnessInt > PowerManager.BRIGHTNESS_ON && brightnessInt <= OPLUS_BRIGHTNESS_ON;
+    }
+
     /**
      * Encapsulates a brightness change event and contains logic for synchronizing the appropriate
      * settings for the specified brightness change.
@@ -398,8 +404,12 @@ public class BrightnessSynchronizer {
                     type == TYPE_FLOAT && floatEquals(getBrightnessAsFloat(), brightness);
             final boolean intUpdateConfirmed =
                     type == TYPE_INT && getBrightnessAsInt() == (int) brightness;
+            final boolean oplusClampedFloatUpdateConfirmed =
+                    type == TYPE_FLOAT && mSourceType == TYPE_INT
+                            && isOplusBrightnessInt((int) mBrightness)
+                            && brightness <= getBrightnessAsFloat();
 
-            if (floatUpdateConfirmed || intUpdateConfirmed) {
+            if (floatUpdateConfirmed || intUpdateConfirmed || oplusClampedFloatUpdateConfirmed) {
                 mConfirmedTypes |= type;
                 Slog.i(TAG, "Swallowing update of " + toStringLabel(type, brightness)
                         + " by update: " + this);

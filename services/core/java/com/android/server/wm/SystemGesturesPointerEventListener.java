@@ -91,6 +91,8 @@ class SystemGesturesPointerEventListener implements PointerEventListener {
     private boolean mMouseHoveringAtRight;
     private boolean mMouseHoveringAtBottom;
     private long mLastFlingTime;
+    private int mLastSwipeX;
+    private int mLastSwipeY;
 
     SystemGesturesPointerEventListener(Context context, Handler handler, Callbacks callbacks) {
         mContext = checkNull("context", context);
@@ -315,6 +317,14 @@ class SystemGesturesPointerEventListener implements PointerEventListener {
         return r.contains((int) mDownX[0], (int) mDownY[0]);
     }
 
+    int getLastSwipeX() {
+        return mLastSwipeX;
+    }
+
+    int getLastSwipeY() {
+        return mLastSwipeY;
+    }
+
     private int findIndex(int pointerId) {
         for (int i = 0; i < mDownPointers; i++) {
             if (mDownPointerId[i] == pointerId) {
@@ -366,11 +376,15 @@ class SystemGesturesPointerEventListener implements PointerEventListener {
                     final float y = move.getHistoricalY(p,  h);
                     final int swipe = detectSwipe(i, time, x, y);
                     if (swipe != SWIPE_NONE) {
+                        mLastSwipeX = (int) x;
+                        mLastSwipeY = (int) y;
                         return swipe;
                     }
                 }
                 final int swipe = detectSwipe(i, move.getEventTime(), move.getX(p), move.getY(p));
                 if (swipe != SWIPE_NONE) {
+                    mLastSwipeX = (int) move.getX(p);
+                    mLastSwipeY = (int) move.getY(p);
                     return swipe;
                 }
             }

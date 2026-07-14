@@ -305,6 +305,7 @@ import com.android.server.uri.NeededUriGrants;
 import com.android.server.uri.UriGrantsManagerInternal;
 import com.android.server.wm.utils.WindowStyleCache;
 import com.android.wm.shell.Flags;
+import com.oplus.app.OplusAppInfo;
 
 import org.lineageos.internal.applications.LineageActivityManager;
 
@@ -338,6 +339,8 @@ import java.util.function.Supplier;
  */
 public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
     private static final String TAG = TAG_WITH_CLASS_NAME ? "ActivityTaskManagerService" : TAG_ATM;
+    private static final int OPLUS_TRANSACTION_GET_ALL_TOP_APP_INFOS = 10053;
+    private static final String OPLUS_GAMES_PACKAGE = "com.oplus.games";
     static final String TAG_ROOT_TASK = TAG + POSTFIX_ROOT_TASK;
     static final String TAG_SWITCH = TAG + POSTFIX_SWITCH;
 
@@ -2576,6 +2579,46 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
         }
 
         return list;
+    }
+
+    private List<OplusAppInfo> getOplusAllTopAppInfos() {
+        final ArrayList<OplusAppInfo> result = new ArrayList<>();
+        final ArrayList<OplusAppInfo> gameSpaceTasks = new ArrayList<>();
+        final long ident = Binder.clearCallingIdentity();
+        try {
+            final List<ActivityManager.RunningTaskInfo> tasks =
+                    getTasks(8, false /* filterOnlyVisibleRecents */,
+                            true /* keepIntentExtra */, INVALID_DISPLAY);
+            if (tasks == null) {
+                return result;
+            }
+            for (ActivityManager.RunningTaskInfo task : tasks) {
+                final OplusAppInfo info = new OplusAppInfo();
+                info.windowingMode = task.getWindowingMode();
+                info.activityType = task.getActivityType();
+                info.taskId = task.taskId;
+                final Rect bounds = task.configuration.windowConfiguration.getBounds();
+                info.appBounds = bounds != null ? new Rect(bounds) : new Rect();
+                info.appInfo = task.topActivityInfo != null
+                        ? task.topActivityInfo.applicationInfo : null;
+                info.topActivity = task.topActivity;
+                info.displayId = task.displayId;
+                info.orientation = task.topActivityInfo != null
+                        ? task.topActivityInfo.screenOrientation : -1;
+                info.userId = task.userId;
+                info.isRootActivity = task.numActivities <= 1;
+                if (info.appInfo != null
+                        && OPLUS_GAMES_PACKAGE.equals(info.appInfo.packageName)) {
+                    gameSpaceTasks.add(info);
+                } else {
+                    result.add(info);
+                }
+            }
+            result.addAll(gameSpaceTasks);
+        } finally {
+            Binder.restoreCallingIdentity(ident);
+        }
+        return result;
     }
 
     @Override
@@ -6303,6 +6346,12 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
             throws RemoteException {
         try {
+            if (code == OPLUS_TRANSACTION_GET_ALL_TOP_APP_INFOS) {
+                data.enforceInterface("android.app.IActivityTaskManager");
+                reply.writeNoException();
+                reply.writeTypedList(getOplusAllTopAppInfos());
+                return true;
+            }
             return super.onTransact(code, data, reply, flags);
         } catch (RuntimeException e) {
             throw logAndRethrowRuntimeExceptionOnTransact(TAG, e);

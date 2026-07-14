@@ -1669,7 +1669,9 @@ public class SettingsProvider extends ContentProvider {
             boolean makeDefault, int requestingUserId, int operation, boolean forceNotify,
             int mode, boolean overrideableByRestore) {
         // Make sure the caller can change the settings - treated as secure.
-        enforceHasAtLeastOnePermission(Manifest.permission.WRITE_SECURE_SETTINGS);
+        if (!isOplusGamesGlobalSettingWrite(name)) {
+            enforceHasAtLeastOnePermission(Manifest.permission.WRITE_SECURE_SETTINGS);
+        }
 
         // Resolve the userId on whose behalf the call is made.
         final int callingUserId = resolveCallingUserIdEnforcingPermissions(requestingUserId);
@@ -1964,7 +1966,9 @@ public class SettingsProvider extends ContentProvider {
             boolean makeDefault, @CanBeCURRENT @UserIdInt int requestingUserId, int operation,
             boolean forceNotify, int mode, boolean overrideableByRestore) {
         // Make sure the caller can change the settings.
-        enforceHasAtLeastOnePermission(Manifest.permission.WRITE_SECURE_SETTINGS);
+        if (!isOplusGamesSecureSettingWrite(name)) {
+            enforceHasAtLeastOnePermission(Manifest.permission.WRITE_SECURE_SETTINGS);
+        }
 
         // Resolve the userId on whose behalf the call is made.
         final int callingUserId = resolveCallingUserIdEnforcingPermissions(requestingUserId);
@@ -2126,7 +2130,7 @@ public class SettingsProvider extends ContentProvider {
             @CanBeCURRENT @UserIdInt int runAsUserId,
             int operation, int mode, boolean overrideableByRestore) {
         final String callingPackage = getCallingPackage();
-        if (!hasWriteSecureSettingsPermission()) {
+        if (!hasWriteSecureSettingsPermission() && !isOplusGamesSystemSettingWrite(name)) {
             // If the caller doesn't hold WRITE_SECURE_SETTINGS, we verify whether this
             // operation is allowed for the calling package through appops.
             if (!Settings.checkAndNoteWriteSettingsOperation(getContext(),
@@ -2296,6 +2300,46 @@ public class SettingsProvider extends ContentProvider {
         // Write secure settings is a more protected permission. If caller has it we are good.
         return getContext().checkCallingOrSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS)
                 == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean isOplusGamesSecureSettingWrite(String name) {
+        return "com.oplus.games".equals(getCallingPackage())
+                && name != null
+                && (name.startsWith("oplus_games")
+                || name.startsWith("gamecenter")
+                || name.startsWith("spruce_")
+                || name.startsWith("hide_game")
+                || name.startsWith("show_gamespace")
+                || name.startsWith("close_auto_brightless")
+                || Settings.Secure.ENABLED_NOTIFICATION_LISTENERS.equals(name)
+                || "barrage_switch".equals(name)
+                || "is_gamecenter_control_gamedock_swith".equals(name));
+    }
+
+    private boolean isOplusGamesGlobalSettingWrite(String name) {
+        return "com.oplus.games".equals(getCallingPackage())
+                && name != null
+                && (name.startsWith("oplus_games")
+                || name.startsWith("com_oplus_games")
+                || name.startsWith("game_")
+                || name.startsWith("games_")
+                || name.startsWith("key_game")
+                || name.startsWith("assistant_space")
+                || name.startsWith("show_gamespace")
+                || name.startsWith("hide_game")
+                || name.startsWith("disturb_for_game_space")
+                || name.startsWith("has_support_sync_pubg")
+                || name.startsWith("wifi_sla")
+                || name.startsWith("debug_gamemode"));
+    }
+
+    private boolean isOplusGamesSystemSettingWrite(String name) {
+        return "com.oplus.games".equals(getCallingPackage())
+                && name != null
+                && (name.startsWith("oplus_games")
+                || Settings.System.SCREEN_BRIGHTNESS.equals(name)
+                || "oplus_customize_screenshot_enable_area_screenshot".equals(name)
+                || "com.oplus.games_get_cta_auth_state".equals(name));
     }
 
     private void validateSystemSettingValue(String name, String value) {

@@ -77,6 +77,7 @@ import android.os.Message;
 import android.os.Parcel;
 import android.os.PowerManager;
 import android.os.Process;
+import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.StrictMode;
 import android.os.SystemClock;
@@ -1691,6 +1692,26 @@ public final class SystemServer implements Dumpable {
                     new OplusAccessControlManagerService(context);
             ServiceManager.addService("oplus_accesscontrol", oplusAccessControl);
             oplusAccessControl.onSystemReady();
+            t.traceEnd();
+
+            t.traceBegin("StartOplusHeimdallCompatService");
+            ServiceManager.addService("heimdall", new Binder() {
+                @Override
+                protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+                        throws RemoteException {
+                    if (code == IBinder.INTERFACE_TRANSACTION) {
+                        reply.writeString("com.oplus.heimdall.IHeimdallService");
+                        return true;
+                    }
+                    if (code >= 1 && code <= 3) {
+                        data.enforceInterface("com.oplus.heimdall.IHeimdallService");
+                        reply.writeNoException();
+                        reply.writeStrongBinder(null);
+                        return true;
+                    }
+                    return super.onTransact(code, data, reply, flags);
+                }
+            });
             t.traceEnd();
 
             // Records errors and logs, for example wtf()

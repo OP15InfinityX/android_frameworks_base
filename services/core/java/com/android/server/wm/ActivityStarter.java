@@ -921,6 +921,11 @@ class ActivityStarter {
                     res = waitResultIfNeeded(mRequest.waitResult, mLastStartActivityRecord,
                             launchingState);
                 }
+                if (isStartResultSuccessful(res) && launchingRecord != null) {
+                    OplusGameSpaceToolBoxManager.getInstance().onActivityLaunched(
+                            mService.mContext, mService.mH, mRequest.callingPackage,
+                            launchingRecord.packageName);
+                }
                 return getExternalResult(res);
             }
         } finally {

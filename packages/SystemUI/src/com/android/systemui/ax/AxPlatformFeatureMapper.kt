@@ -133,6 +133,7 @@ class AxPlatformFeatureMapper @Inject constructor(
             AxPlatformClient.FEATURE_DREAM to R.string.quick_settings_screensaver_label,
             AxPlatformClient.FEATURE_READING_MODE to R.string.quick_settings_reading_mode,
             AxPlatformClient.FEATURE_POWER_SHARE to R.string.quick_settings_powershare_label,
+            AxPlatformClient.FEATURE_BYPASS_CHARGING to R.string.quick_settings_bypass_charging_label,
             AxPlatformClient.FEATURE_CAFFEINE to R.string.quick_settings_caffeine_label,
             AxPlatformClient.FEATURE_VPN to R.string.quick_settings_vpn_label,
             AxPlatformClient.FEATURE_CAST to R.string.quick_settings_cast_title,

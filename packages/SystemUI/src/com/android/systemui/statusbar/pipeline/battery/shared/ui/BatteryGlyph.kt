@@ -110,6 +110,18 @@ sealed interface BatteryGlyph : Glyph {
         override val height: Float = 9.00f
     }
 
+    data object Bypass : BatteryGlyph {
+        override val path: Path =
+            Path().apply {
+                addSvg(
+                    "M1.36,0.72H3.12V3.36H4.88V0.72H6.64V3.36H7.52V6C7.52,7.94 5.94,9.52 4,9.52C2.06,9.52 0.48,7.94 0.48,6V3.36H1.36V0.72ZM3.12,9.52H4.88V11.28H3.12V9.52Z"
+                )
+            }
+
+        override val width: Float = 8.00f
+        override val height: Float = 12.00f
+    }
+
     data object Plus : BatteryGlyph {
         override val path: Path =
             Path().apply {

@@ -67,6 +67,10 @@
     <!-- When the lock screen is showing and the phone plugged in with incompatible charger. -->
     <string name="keyguard_plugged_in_incompatible_charger"><xliff:g id="percentage">%s</xliff:g> • Check charging accessory</string>
 
+    <!-- Indication shown while the connected power source is directly powering the device. -->
+    <string name="keyguard_bypass_charging"><xliff:g id="percentage">%s</xliff:g> • Bypass charging</string>
+    <string name="keyguard_bypass_charging_with_power"><xliff:g id="percentage">%1$s</xliff:g> • Bypass charging • <xliff:g id="power_draw">%2$s</xliff:g></string>
+
     <!-- SIM messages --><skip />
     <!-- When the user inserts a sim card from an unsupported network, it becomes network locked -->
     <string name="keyguard_network_locked_message">Network locked</string>

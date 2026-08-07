@@ -18,6 +18,7 @@ package com.android.server.wm;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
 
 import android.content.Context;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -202,5 +203,41 @@ public class GameSpaceService extends IGameSpaceService.Stub {
     @Override
     public void unregisterCallback(IGameSpaceCallback callback) {
         mCallbacks.remove(callback);
+    }
+
+    @Override
+    public void setBypassCharge(boolean enabled) {
+        mContext.enforceCallingOrSelfPermission(
+                android.Manifest.permission.WRITE_SECURE_SETTINGS, TAG);
+        final long token = Binder.clearCallingIdentity();
+        try {
+            mGameStateDispatcher.setBypassCharge(enabled);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
+    public boolean isBypassChargeActive() {
+        mContext.enforceCallingOrSelfPermission(
+                android.Manifest.permission.WRITE_SECURE_SETTINGS, TAG);
+        final long token = Binder.clearCallingIdentity();
+        try {
+            return mGameStateDispatcher.isBypassChargeActive();
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
+    }
+
+    @Override
+    public long getBypassChargePowerMicrowatts() {
+        mContext.enforceCallingOrSelfPermission(
+                android.Manifest.permission.WRITE_SECURE_SETTINGS, TAG);
+        final long token = Binder.clearCallingIdentity();
+        try {
+            return mGameStateDispatcher.getBypassChargePowerMicrowatts();
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
     }
 }

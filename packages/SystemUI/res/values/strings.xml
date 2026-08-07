@@ -1139,6 +1139,7 @@
     <string name="quick_settings_usb_tether_label">USB tether</string>
     <!-- QuickSettings: Power share tile [CHAR LIMIT=NONE] -->
     <string name="quick_settings_powershare_label">Power share</string>
+    <string name="quick_settings_bypass_charging_label">Bypass charging</string>
     <!-- QuickSettings: Caffeine tile [CHAR LIMIT=NONE] -->
     <string name="quick_settings_caffeine_label">Caffeine</string>
     <!-- QuickSettings: Reading mode tile [CHAR LIMIT=NONE] -->

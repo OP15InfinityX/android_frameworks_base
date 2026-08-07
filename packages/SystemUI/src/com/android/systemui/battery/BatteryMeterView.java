@@ -85,6 +85,7 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
     private boolean mShowPercentAvailable;
     private String mEstimateText = null;
     private boolean mPluggedIn;
+    private boolean mBypassCharging;
     private boolean mPowerSaveEnabled;
     private boolean mIsBatteryDefender;
     private boolean mIsIncompatibleCharging;
@@ -240,6 +241,7 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
         mLevel = level;
         boolean isCharging = isCharging();
         mDrawable.setCharging(isCharging);
+        mDrawable.setBypassCharging(mBypassCharging);
         mDrawable.setBatteryLevel(level);
         updatePercentText();
 
@@ -271,6 +273,8 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
             resId = R.drawable.battery_unified_attr_powersave;
         } else if (mIsBatteryDefender) {
             resId = R.drawable.battery_unified_attr_defend;
+        } else if (mBypassCharging && isCharging) {
+            resId = R.drawable.battery_unified_attr_bypass;
         } else if (isCharging) {
             resId = R.drawable.battery_unified_attr_charging;
         }
@@ -315,6 +319,24 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
         if (!NewStatusBarIcons.isEnabled()) {
             mDrawable.setPowerSaveEnabled(isPowerSave);
         } else {
+            setBatteryDrawableState(
+                    new BatteryDrawableState(
+                            mUnifiedBatteryState.getLevel(),
+                            mUnifiedBatteryState.getShowPercent(),
+                            getCurrentColorProfile(),
+                            getBatteryAttribution(isCharging())
+                    )
+            );
+        }
+    }
+
+    void onBypassChargingChanged(boolean bypassCharging) {
+        if (mBypassCharging == bypassCharging) {
+            return;
+        }
+        mBypassCharging = bypassCharging;
+        mDrawable.setBypassCharging(bypassCharging);
+        if (NewStatusBarIcons.isEnabled()) {
             setBatteryDrawableState(
                     new BatteryDrawableState(
                             mUnifiedBatteryState.getLevel(),
@@ -775,6 +797,7 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
         pw.println("    mBatteryStateUnknown: " + mBatteryStateUnknown);
         pw.println("    mIsIncompatibleCharging: " + mIsIncompatibleCharging);
         pw.println("    mPluggedIn: " + mPluggedIn);
+        pw.println("    mBypassCharging: " + mBypassCharging);
         pw.println("    mLevel: " + mLevel);
         pw.println("    mMode: " + mShowPercentMode);
         if (NewStatusBarIcons.isEnabled()) {
@@ -803,4 +826,3 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
                 BatteryController.EstimateFetchCompletion completion);
     }
 }
-

@@ -21,6 +21,7 @@ import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
 import android.os.UserHandle
+import android.provider.Settings
 import com.android.systemui.Flags
 import com.android.systemui.res.R
 import com.android.systemui.dagger.SysUISingleton
@@ -74,6 +75,9 @@ interface BatteryRepository {
 
     /** True if the system has detected an incompatible charger (and thus is not charging) */
     val isIncompatibleCharging: Flow<Boolean>
+
+    /** True while charging is being bypassed with external power connected. */
+    val isBypassCharging: Flow<Boolean>
 
     /** The current level [0-100] */
     val level: Flow<Int?>
@@ -272,6 +276,30 @@ constructor(
                 batteryState.value.isIncompatibleCharging,
             )
 
+    override val isBypassCharging =
+        callbackFlow {
+                val resolver = context.contentResolver
+                val uri = Settings.Global.getUriFor(BYPASS_CHARGE_ACTIVE)
+                val observer =
+                    object : ContentObserver(Handler(Looper.getMainLooper())) {
+                        override fun onChange(selfChange: Boolean) {
+                            trySend(
+                                Settings.Global.getInt(
+                                    resolver,
+                                    BYPASS_CHARGE_ACTIVE,
+                                    0,
+                                ) != 0
+                            )
+                        }
+                    }
+
+                resolver.registerContentObserver(uri, false, observer)
+                trySend(Settings.Global.getInt(resolver, BYPASS_CHARGE_ACTIVE, 0) != 0)
+                awaitClose { resolver.unregisterContentObserver(observer) }
+            }
+            .flowOn(bgDispatcher)
+            .distinctUntilChanged()
+
     override val level =
         batteryState
             .map { it.level }
@@ -427,6 +455,7 @@ constructor(
     }
 
     companion object {
+        private const val BYPASS_CHARGE_ACTIVE = "bypass_charge_active"
         private const val COL_PLUGGED_IN = "pluggedIn"
         private const val COL_POWER_SAVE = "powerSave"
         private const val COL_EXTREME_POWER_SAVE = "extremePowerSave"

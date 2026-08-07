@@ -33,11 +33,13 @@ import android.nfc.NfcAdapter
 import android.os.PowerManager
 import android.os.RemoteException
 import android.os.ServiceManager
+import android.os.SystemProperties
 import android.os.UserHandle
 import android.provider.Settings
 import android.service.dreams.IDreamManager
 import android.util.Log
 import com.android.axion.platform.AxPlatformClient
+import com.android.internal.app.IGameSpaceService
 import com.android.settingslib.bluetooth.CachedBluetoothDevice
 import com.android.settingslib.bluetooth.LocalBluetoothManager
 import com.android.systemui.dagger.SysUISingleton
@@ -103,6 +105,10 @@ class AxPlatformFeatureController @Inject constructor(
     internal val lineageHardware: LineageHardwareManager? = try {
         LineageHardwareManager.getInstance(context)
     } catch (e: Exception) { null }
+    private fun getGameSpaceService(): IGameSpaceService? =
+        try {
+            IGameSpaceService.Stub.asInterface(ServiceManager.getService("game_space"))
+        } catch (e: Exception) { null }
 
     private val screenshotHelper = ScreenshotHelper(context)
     private val screenshotHandler = Handler(Looper.getMainLooper())
@@ -127,6 +133,8 @@ class AxPlatformFeatureController @Inject constructor(
                 add(AxPlatformClient.FEATURE_READING_MODE)
             if (batteryController.isReverseSupported)
                 add(AxPlatformClient.FEATURE_POWER_SHARE)
+            if (SystemProperties.getBoolean("persist.sys.battery_bypass_supported", false))
+                add(AxPlatformClient.FEATURE_BYPASS_CHARGING)
             add(AxPlatformClient.FEATURE_CAFFEINE)
             add(AxPlatformClient.FEATURE_VPN)
             add(AxPlatformClient.FEATURE_CAST)
@@ -241,6 +249,9 @@ class AxPlatformFeatureController @Inject constructor(
             }
             AxPlatformClient.FEATURE_POWER_SHARE ->
                 batteryController.setReverseState(!batteryController.isReverseOn)
+            AxPlatformClient.FEATURE_BYPASS_CHARGING -> setBypassCharging(
+                !(getGameSpaceService()?.isBypassChargeActive ?: false)
+            )
             AxPlatformClient.FEATURE_CAFFEINE -> {
                 if (wakeLock.isHeld) {
                     wakeLock.release()
@@ -364,6 +375,7 @@ class AxPlatformFeatureController @Inject constructor(
             }
             AxPlatformClient.FEATURE_POWER_SHARE ->
                 batteryController.setReverseState(enabled)
+            AxPlatformClient.FEATURE_BYPASS_CHARGING -> setBypassCharging(enabled)
             AxPlatformClient.FEATURE_CAFFEINE -> {
                 if (enabled && !wakeLock.isHeld) {
                     wakeLock.acquire(CAFFEINE_DURATION_MS)
@@ -444,6 +456,19 @@ class AxPlatformFeatureController @Inject constructor(
         )
     }
 
+    private fun setBypassCharging(enabled: Boolean) {
+        try {
+            val service = getGameSpaceService()
+            service?.setBypassCharge(enabled)
+            stateManager.broadcastBool(
+                AxPlatformClient.FEATURE_BYPASS_CHARGING,
+                service?.isBypassChargeActive ?: false
+            )
+        } catch (e: RemoteException) {
+            Log.w(TAG, "Bypass charging toggle failed", e)
+        }
+    }
+
     companion object {
         private const val TAG = "AxPlatformFeatureCtrl"
         private const val CAFFEINE_DURATION_MS = 5L * 60 * 1000
@@ -452,6 +477,7 @@ class AxPlatformFeatureController @Inject constructor(
         const val SETTING_REDUCE_BRIGHT = "reduce_bright_colors_activated"
         const val SETTING_ONE_HANDED = "one_handed_mode_enabled"
         const val SETTING_SMART_PIXELS = "smart_pixel_filter_enabled"
+        const val SETTING_BYPASS_CHARGE_ACTIVE = "bypass_charge_active"
 
         fun isDarkMode(config: Configuration): Boolean =
             (config.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES

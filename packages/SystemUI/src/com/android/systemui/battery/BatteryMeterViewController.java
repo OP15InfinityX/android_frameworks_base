@@ -51,6 +51,8 @@ import javax.inject.Inject;
  * @deprecated once [NewStatusBarIcons] is rolled out, this class is no longer needed
  */
 public class BatteryMeterViewController extends ViewController<BatteryMeterView> {
+    private static final String BYPASS_CHARGE_ACTIVE = "bypass_charge_active";
+
     private final ConfigurationController mConfigurationController;
     private final TunerService mTunerService;
     private final Handler mMainHandler;
@@ -168,9 +170,11 @@ public class BatteryMeterViewController extends ViewController<BatteryMeterView>
 
         registerShowBatteryPercentObserver(mUserTracker.getUserId());
         registerGlobalBatteryUpdateObserver();
+        registerBypassChargingObserver();
         mUserTracker.addCallback(mUserChangedCallback, new HandlerExecutor(mMainHandler));
 
         mView.updateShowPercent();
+        updateBypassCharging();
     }
 
     @Override
@@ -225,6 +229,18 @@ public class BatteryMeterViewController extends ViewController<BatteryMeterView>
                 mSettingObserver);
     }
 
+    private void registerBypassChargingObserver() {
+        mContentResolver.registerContentObserver(
+                Settings.Global.getUriFor(BYPASS_CHARGE_ACTIVE),
+                false,
+                mSettingObserver);
+    }
+
+    private void updateBypassCharging() {
+        mView.onBypassChargingChanged(Settings.Global.getInt(
+                mContentResolver, BYPASS_CHARGE_ACTIVE, 0) != 0);
+    }
+
     private final class SettingObserver extends ContentObserver {
         public SettingObserver(Handler handler) {
             super(handler);
@@ -234,6 +250,9 @@ public class BatteryMeterViewController extends ViewController<BatteryMeterView>
         public void onChange(boolean selfChange, Uri uri) {
             super.onChange(selfChange, uri);
             mView.updateShowPercent();
+            if (TextUtils.equals(uri.getLastPathSegment(), BYPASS_CHARGE_ACTIVE)) {
+                updateBypassCharging();
+            }
             if (TextUtils.equals(uri.getLastPathSegment(),
                     Settings.Global.BATTERY_ESTIMATES_LAST_UPDATE_TIME)) {
                 // update the text for sure if the estimate in the cache was updated

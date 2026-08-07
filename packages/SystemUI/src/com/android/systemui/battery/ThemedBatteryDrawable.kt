@@ -56,6 +56,9 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
     private val boltPath = Path()
     private val scaledBolt = Path()
 
+    private val bypassPath = Path()
+    private val scaledBypass = Path()
+
     private val plusPath = Path()
     private val scaledPlus = Path()
 
@@ -91,6 +94,12 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         set(value) {
             field = value
             levelColor = batteryColorForLevel(batteryLevel)
+            postInvalidate()
+        }
+
+    var bypassCharging = false
+        set(value) {
+            field = value
             postInvalidate()
         }
 
@@ -215,6 +224,7 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
 
     override fun draw(c: Canvas) {
         c.saveLayer(null, null)
+        val chargingPath = if (bypassCharging) scaledBypass else scaledBolt
         unifiedPath.reset()
         levelPath.reset()
         levelRect.set(fillRect)
@@ -262,9 +272,9 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         fillPaint.color = levelColor
 
         if (charging) {
-            unifiedPath.op(scaledBolt, Path.Op.DIFFERENCE)
+            unifiedPath.op(chargingPath, Path.Op.DIFFERENCE)
             if (!boltKnockout && !invertFillIcon) {
-                c.drawPath(scaledBolt, fillPaint)
+                c.drawPath(chargingPath, fillPaint)
             }
         }
 
@@ -311,11 +321,11 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         }
 
         if (charging && !boltKnockout) {
-            c.clipOutPath(scaledBolt)
+            c.clipOutPath(chargingPath)
             if (invertFillIcon) {
-                c.drawPath(scaledBolt, fillColorStrokePaint)
+                c.drawPath(chargingPath, fillColorStrokePaint)
             } else {
-                c.drawPath(scaledBolt, fillColorStrokeProtection)
+                c.drawPath(chargingPath, fillColorStrokeProtection)
             }
         } else if (powerSaveEnabled) {
             if (powerSaveDrawError) {
@@ -369,8 +379,9 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         }
         val pbHeight = pb.height()
 
-        val hasBolt = charging && !scaledBolt.isEmpty
-        if (hasBolt) scaledBolt.computeBounds(boltBoundsF, true)
+        val chargingPath = if (bypassCharging) scaledBypass else scaledBolt
+        val hasBolt = charging && !chargingPath.isEmpty
+        if (hasBolt) chargingPath.computeBounds(boltBoundsF, true)
 
         val availableLeft: Float
         val availableRight: Float
@@ -562,6 +573,7 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         fillMask.transform(scaleMatrix, scaledFill)
         scaledFill.computeBounds(fillRect, true)
         boltPath.transform(scaleMatrix, scaledBolt)
+        bypassPath.transform(scaleMatrix, scaledBypass)
         plusPath.transform(scaleMatrix, scaledPlus)
 
         val scaledStrokeWidth =
@@ -590,6 +602,10 @@ open class ThemedBatteryDrawable(private val context: Context, frameColor: Int) 
         val boltPathString = context.resources.getString(
                 SysUiR.string.config_batterymeterBoltPath)
         boltPath.set(PathParser.createPathFromPathData(boltPathString))
+
+        val bypassPathString = context.resources.getString(
+                SysUiR.string.config_batterymeterBypassPath)
+        bypassPath.set(PathParser.createPathFromPathData(bypassPathString))
 
         val plusPathString = context.resources.getString(
                 SysUiR.string.config_batterymeterPowersavePath)

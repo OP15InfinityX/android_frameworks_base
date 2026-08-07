@@ -466,7 +466,11 @@ fun CircleBatteryBody(
         // Draw colored arc representing charge level
         if (level != null && level > 0) {
             drawArc(
-                if (attr is BatteryGlyph.Bolt || attr is BatteryGlyph.Defend) {
+                if (
+                    attr is BatteryGlyph.Bolt ||
+                        attr is BatteryGlyph.Bypass ||
+                        attr is BatteryGlyph.Defend
+                ) {
                     BatteryColors.DarkTheme.Charging.fill
                 } else if (attr is BatteryGlyph.Plus) {
                     BatteryColors.DarkTheme.PowerSave.fill

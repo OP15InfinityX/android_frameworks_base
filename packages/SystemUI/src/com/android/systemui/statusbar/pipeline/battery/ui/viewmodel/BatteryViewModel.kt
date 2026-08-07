@@ -33,6 +33,7 @@ import com.android.systemui.res.R
 import com.android.systemui.statusbar.core.StatusBarConnectedDisplays
 import com.android.systemui.statusbar.pipeline.battery.data.repository.BatteryRepository
 import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.Charging
+import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.Bypass
 import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.Defend
 import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.PowerSave
 import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.Unknown
@@ -133,6 +134,8 @@ sealed class BatteryViewModel(
     protected val attributionGlyph: Flow<BatteryGlyph?> =
         interactor.batteryAttributionType.map {
             when (it) {
+                Bypass -> BatteryGlyph.Bypass
+
                 Charging -> BatteryGlyph.Bolt
 
                 PowerSave -> BatteryGlyph.Plus
@@ -155,6 +158,7 @@ sealed class BatteryViewModel(
     private val _colorProfile: Flow<ColorProfile> =
         combine(interactor.batteryAttributionType, interactor.isCritical) { attr, isCritical ->
             when (attr) {
+                Bypass,
                 Charging,
                 Defend ->
                     ColorProfile(

@@ -52,6 +52,7 @@
     <string name="config_batterymeterErrorPerimeterPath" translatable="false">@string/config_batterymeterPerimeterPath</string>
     <string name="config_batterymeterFillMask" translatable="false">M2,18 v-14 h8 v14 z</string>
     <string name="config_batterymeterBoltPath" translatable="false">M5,17.5 V12 H3 L7,4.5 V10 h2 L5,17.5 z</string>
+    <string name="config_batterymeterBypassPath" translatable="false">M3,5 H5 V2 H7 V5 H9 V10 C9,11.7 7.7,13 6,13 C4.3,13 3,11.7 3,10 Z M5.25,13 H6.75 V17 H5.25 Z</string>
     <string name="config_batterymeterPowersavePath" translatable="false">M9,10l-2,0l0,-2l-2,0l0,2l-2,0l0,2l2,0l0,2l2,0l0,-2l2,0z</string>
     <bool name="config_batterymeterDualTone">false</bool>
     <integer name="config_batterymeterWidth">12</integer>

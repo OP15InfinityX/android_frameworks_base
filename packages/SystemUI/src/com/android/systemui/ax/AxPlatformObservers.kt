@@ -214,6 +214,10 @@ class AxPlatformObservers @Inject constructor(
             Settings.Global.HEADS_UP_NOTIFICATIONS_ENABLED,
             AxPlatformClient.FEATURE_HEADS_UP
         )
+        stateManager.observeGlobal(
+            AxPlatformFeatureController.SETTING_BYPASS_CHARGE_ACTIVE,
+            AxPlatformClient.FEATURE_BYPASS_CHARGING
+        )
         stateManager.broadcastBool(
             AxPlatformClient.FEATURE_AUTO_SYNC,
             ContentResolver.getMasterSyncAutomatically()

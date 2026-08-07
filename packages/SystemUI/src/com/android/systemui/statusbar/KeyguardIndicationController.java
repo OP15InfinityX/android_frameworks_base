@@ -87,6 +87,7 @@ import androidx.annotation.Nullable;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
+import com.android.internal.app.IGameSpaceService;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.KeyguardUpdateMonitorCallback;
@@ -162,6 +163,8 @@ public class KeyguardIndicationController {
 
     public static final String TAG = "KeyguardIndication";
     private static final boolean DEBUG_CHARGING_SPEED = false;
+    private static final String BYPASS_CHARGE_ACTIVE = "bypass_charge_active";
+    private static final long BYPASS_INFO_UPDATE_INTERVAL_MS = 5_000;
 
     private static final int MSG_SHOW_ACTION_TO_UNLOCK = 1;
     private static final int MSG_RESET_ERROR_MESSAGE_ON_SCREEN_ON = 2;
@@ -262,6 +265,16 @@ public class KeyguardIndicationController {
 
     private IBatteryPropertiesRegistrar mBatteryPropertiesRegistrar;
     private boolean mAlternateFastchargeInfoUpdate;
+
+    private final Runnable mBypassInfoUpdate = new Runnable() {
+        @Override
+        public void run() {
+            if (!mVisible || !isBypassChargingActive()) return;
+
+            updateDeviceEntryIndication(false);
+            mHandler.postDelayed(this, BYPASS_INFO_UPDATE_INTERVAL_MS);
+        }
+    };
 
     private KeyguardUpdateMonitorCallback mUpdateMonitorCallback;
 
@@ -740,7 +753,8 @@ public class KeyguardIndicationController {
     }
 
     private void updateLockScreenBatteryMsg(boolean animate) {
-        if (mBatteryPresent && (mPowerPluggedIn || mEnableBatteryDefender)) {
+        if (mBatteryPresent && (mPowerPluggedIn || mEnableBatteryDefender
+                || isBypassChargingActive())) {
             String powerIndication = computePowerIndication();
             if (DEBUG_CHARGING_SPEED) {
                 powerIndication += ",  " + (mChargingWattage / mCurrentDivider) + " mW";
@@ -1025,6 +1039,7 @@ public class KeyguardIndicationController {
     public void setVisible(boolean visible) {
         mVisible = visible;
         mIndicationArea.setVisibility(visible ? VISIBLE : GONE);
+        updateBypassInfoPolling();
         if (visible) {
             // If this is called after an error message was already shown, we should not clear it.
             // Otherwise the error message won't be shown
@@ -1269,7 +1284,8 @@ public class KeyguardIndicationController {
                 // If the battery level is not initialized, hide the indication area
                 mIndicationArea.setVisibility(GONE);
                 return;
-            } else if (mPowerPluggedIn || mEnableBatteryDefender) {
+            } else if (mPowerPluggedIn || mEnableBatteryDefender
+                    || isBypassChargingActive()) {
                 newIndication = computePowerIndication();
             } else {
                 newIndication = NumberFormat.getPercentInstance()
@@ -1306,7 +1322,9 @@ public class KeyguardIndicationController {
      * Assumption: device is charging
      */
     protected String computePowerIndication() {
-        if (mBatteryDefender) {
+        if (isBypassChargingActive()) {
+            return computeBypassChargingIndication();
+        } else if (mBatteryDefender) {
             String percentage = NumberFormat.getPercentInstance().format(mBatteryLevel / 100f);
             return mContext.getResources().getString(
                     R.string.keyguard_plugged_in_charging_limited, percentage);
@@ -1317,6 +1335,40 @@ public class KeyguardIndicationController {
         }
 
         return computePowerChargingStringIndication();
+    }
+
+    private String computeBypassChargingIndication() {
+        String percentage = NumberFormat.getPercentInstance().format(mBatteryLevel / 100f);
+        long powerMicrowatts = getBypassChargePowerMicrowatts();
+        if (powerMicrowatts <= 0) {
+            return mContext.getString(R.string.keyguard_bypass_charging, percentage);
+        }
+
+        String power = String.format(Locale.US, "%.1f W", powerMicrowatts / 1_000_000f);
+        return mContext.getString(
+                R.string.keyguard_bypass_charging_with_power, percentage, power);
+    }
+
+    private boolean isBypassChargingActive() {
+        return Settings.Global.getInt(
+                mContext.getContentResolver(), BYPASS_CHARGE_ACTIVE, 0) != 0;
+    }
+
+    private long getBypassChargePowerMicrowatts() {
+        try {
+            IGameSpaceService service = IGameSpaceService.Stub.asInterface(
+                    ServiceManager.getService("game_space"));
+            return service != null ? service.getBypassChargePowerMicrowatts() : 0;
+        } catch (RemoteException e) {
+            return 0;
+        }
+    }
+
+    private void updateBypassInfoPolling() {
+        mHandler.removeCallbacks(mBypassInfoUpdate);
+        if (mVisible && isBypassChargingActive()) {
+            mHandler.post(mBypassInfoUpdate);
+        }
     }
 
     protected String computePowerChargingStringIndication() {
@@ -1574,11 +1626,13 @@ public class KeyguardIndicationController {
         public void onRefreshBatteryInfo(BatteryStatus status) {
             boolean isChargingOrFull = status.status == BatteryManager.BATTERY_STATUS_CHARGING
                     || status.isCharged();
+            boolean bypassCharging = isBypassChargingActive() && status.isPluggedIn();
+            boolean externallyPowered = isChargingOrFull || bypassCharging;
             boolean wasPluggedIn = mPowerPluggedIn;
-            mPowerPluggedInWired = status.isPluggedInWired() && isChargingOrFull;
-            mPowerPluggedInWireless = status.isPluggedInWireless() && isChargingOrFull;
-            mPowerPluggedInDock = status.isPluggedInDock() && isChargingOrFull;
-            mPowerPluggedIn = isPowerPluggedIn(status, isChargingOrFull);
+            mPowerPluggedInWired = status.isPluggedInWired() && externallyPowered;
+            mPowerPluggedInWireless = status.isPluggedInWireless() && externallyPowered;
+            mPowerPluggedInDock = status.isPluggedInDock() && externallyPowered;
+            mPowerPluggedIn = isPowerPluggedIn(status, externallyPowered);
             mPowerCharged = status.isCharged();
             mChargingCurrent = status.maxChargingCurrent;
             mChargingVoltage = status.maxChargingVoltage;
@@ -1593,6 +1647,7 @@ public class KeyguardIndicationController {
             // when the battery is overheated, device doesn't charge so only guard on pluggedIn:
             mEnableBatteryDefender = mBatteryDefender && status.isPluggedIn();
             mIncompatibleCharger = status.incompatibleCharger.orElse(false);
+            updateBypassInfoPolling();
             if (ScrimUtils.get().isKeyguardShowing()) {
                 try {
                     if (mPowerPluggedIn) {

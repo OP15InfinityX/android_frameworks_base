@@ -103,7 +103,7 @@ private fun PathBatteryBody(
     modifier: Modifier,
     contentDescription: String,
 ) {
-    val isCharging = attr is BatteryGlyph.Bolt
+    val isCharging = attr is BatteryGlyph.Bolt || attr is BatteryGlyph.Bypass
 
     Canvas(
         modifier = modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
@@ -183,7 +183,7 @@ private fun PillBatteryBody(
         val level = levelProvider()
         val colors = colorsProvider()
         val showLevel = showLevelProvider()
-        val isCharging = attr is BatteryGlyph.Bolt
+        val isCharging = attr is BatteryGlyph.Bolt || attr is BatteryGlyph.Bypass
         val isPowerSave = attr is BatteryGlyph.Plus
 
         val accentColor = colors.fill

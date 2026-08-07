@@ -23,6 +23,7 @@ import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
 import com.android.systemui.qs.tiles.BlurTile
+import com.android.systemui.qs.tiles.BypassChargingTile
 import com.android.systemui.qs.tiles.CPUInfoTile
 import com.android.systemui.qs.tiles.CaffeineTile
 import com.android.systemui.qs.tiles.InfinityMemoryBoostTile
@@ -77,6 +78,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(BlurTile.TILE_SPEC)
     fun bindBlurTile(blurTile: BlurTile): QSTileImpl<*>
+
+    /** Inject BypassChargingTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(BypassChargingTile.TILE_SPEC)
+    fun bindBypassChargingTile(tile: BypassChargingTile): QSTileImpl<*>
 
     /** Inject CPUInfoTile into tileMap in QSModule */
     @Binds
@@ -231,6 +238,7 @@ interface LineageModule {
     companion object {
         const val AMBIENT_DISPLAY_TILE_SPEC = "ambient_display"
         const val AOD_TILE_SPEC = "aod"
+        const val BYPASS_CHARGING_TILE_SPEC = "bypass_charging"
         const val CAFFEINE_TILE_SPEC = "caffeine"
         const val HEADS_UP_TILE_SPEC = "heads_up"
         const val POWERSHARE_TILE_SPEC = "powershare"
@@ -285,6 +293,21 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(BYPASS_CHARGING_TILE_SPEC)
+        fun provideBypassChargingTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(BYPASS_CHARGING_TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_bypass_charging,
+                        labelRes = R.string.quick_settings_bypass_charging_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
             )
 
         @Provides

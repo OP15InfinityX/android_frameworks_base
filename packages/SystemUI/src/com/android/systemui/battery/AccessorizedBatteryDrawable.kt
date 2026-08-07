@@ -178,6 +178,11 @@ class AccessorizedBatteryDrawable(
         mainBatteryDrawable.charging = charging
     }
 
+    /** Sets whether the charging glyph should indicate bypass charging. */
+    fun setBypassCharging(bypassCharging: Boolean) {
+        mainBatteryDrawable.bypassCharging = bypassCharging
+    }
+
     /** Returns whether the battery is currently charging. */
     fun getCharging(): Boolean {
         return mainBatteryDrawable.charging

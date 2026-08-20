@@ -7407,6 +7407,12 @@ public final class Settings {
         public static final String LOCKSCREEN_BATTERY_INFO = "lockscreen_battery_info";
 
         /**
+         * Whether to show battery level and charging information on the always-on display
+         * @hide
+         */
+        public static final String AOD_BATTERY_INFO = "aod_battery_info";
+
+        /**
          * Whether to use the custom status bar header or not
          * @hide
          */

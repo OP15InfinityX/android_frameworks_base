@@ -25,6 +25,7 @@ import android.os.BatteryManager
 import android.os.RemoteException
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
+import android.provider.Settings
 import android.testing.TestableLooper
 import android.view.View
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -1083,6 +1084,87 @@ class KeyguardIndicationControllerTest : KeyguardIndicationControllerBaseTest() 
     }
 
     @Test
+    fun aodBatteryInfoDisabled_dozingDischarging_hidesIndicationArea() {
+        setAodBatteryInfoEnabled(false)
+        try {
+            createController()
+            mController.setVisible(true)
+            val status =
+                BatteryStatus(
+                    BatteryManager.BATTERY_STATUS_DISCHARGING,
+                    90, /* level */
+                    0, /* plugged */
+                    BatteryManager.CHARGING_POLICY_DEFAULT,
+                    0, /* maxChargingWattage */
+                    true, /* present */
+                )
+            mController.getKeyguardCallback().onRefreshBatteryInfo(status)
+            reset(mIndicationArea)
+
+            mStatusBarStateListener.onDozingChanged(true)
+
+            verify(mIndicationArea).visibility = View.VISIBLE
+            verify(mIndicationArea).visibility = View.GONE
+        } finally {
+            setAodBatteryInfoEnabled(true)
+        }
+    }
+
+    @Test
+    fun aodBatteryInfoDisabled_dozingCharging_hidesIndicationArea() {
+        setAodBatteryInfoEnabled(false)
+        try {
+            createController()
+            mController.setVisible(true)
+            val status =
+                BatteryStatus(
+                    BatteryManager.BATTERY_STATUS_CHARGING,
+                    80, /* level */
+                    BatteryManager.BATTERY_PLUGGED_AC,
+                    BatteryManager.CHARGING_POLICY_DEFAULT,
+                    0, /* maxChargingWattage */
+                    true, /* present */
+                )
+            mController.getKeyguardCallback().onRefreshBatteryInfo(status)
+            reset(mIndicationArea)
+
+            mStatusBarStateListener.onDozingChanged(true)
+
+            verify(mIndicationArea).visibility = View.VISIBLE
+            verify(mIndicationArea).visibility = View.GONE
+        } finally {
+            setAodBatteryInfoEnabled(true)
+        }
+    }
+
+    @Test
+    fun aodBatteryInfoDisabled_lockScreenCharging_stillShowsBatteryIndication() {
+        setAodBatteryInfoEnabled(false)
+        try {
+            createController()
+            val status =
+                BatteryStatus(
+                    BatteryManager.BATTERY_STATUS_CHARGING,
+                    100, /* level */
+                    BatteryManager.BATTERY_PLUGGED_AC,
+                    BatteryManager.CHARGING_POLICY_DEFAULT,
+                    0, /* maxChargingWattage */
+                    true, /* present */
+                )
+            mController.getKeyguardCallback().onRefreshBatteryInfo(status)
+
+            mController.setVisible(true)
+
+            verifyIndicationMessage(
+                KeyguardIndicationRotateTextViewController.INDICATION_TYPE_BATTERY,
+                mContext.getString(R.string.keyguard_charged),
+            )
+        } finally {
+            setAodBatteryInfoEnabled(true)
+        }
+    }
+
+    @Test
     fun onRequireUnlockForNfc_showsRequireUnlockForNfcIndication() {
         createController()
         mController.setVisible(true)
@@ -2083,6 +2165,15 @@ class KeyguardIndicationControllerTest : KeyguardIndicationControllerBaseTest() 
 
     private val currentUser: Int
         get() = mCurrentUserId
+
+    private fun setAodBatteryInfoEnabled(enabled: Boolean) {
+        Settings.System.putIntForUser(
+            mContext.contentResolver,
+            Settings.System.AOD_BATTERY_INFO,
+            if (enabled) 1 else 0,
+            currentUser,
+        )
+    }
 
     private fun onFaceLockoutError(errMsg: String?) {
         mKeyguardUpdateMonitorCallback.onBiometricError(

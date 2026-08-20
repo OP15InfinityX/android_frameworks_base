@@ -1280,6 +1280,11 @@ public class KeyguardIndicationController {
             } else if (!TextUtils.isEmpty(mAlignmentIndication)) {
                 useMisalignmentColor = true;
                 newIndication = mAlignmentIndication;
+            } else if (!isAodBatteryInfoEnabled()) {
+                // Keep transient and device-entry messages available while allowing users to
+                // hide the persistent battery indication from the always-on display.
+                mIndicationArea.setVisibility(GONE);
+                return;
             } else if (mBatteryLevel == -1) {
                 // If the battery level is not initialized, hide the indication area
                 mIndicationArea.setVisibility(GONE);
@@ -1316,6 +1321,14 @@ public class KeyguardIndicationController {
         mTopIndicationView.setText(null);
         mLockScreenIndicationView.setVisibility(View.VISIBLE);
         updateLockScreenIndications(animate, getCurrentUser());
+    }
+
+    private boolean isAodBatteryInfoEnabled() {
+        return Settings.System.getIntForUser(
+                mContext.getContentResolver(),
+                Settings.System.AOD_BATTERY_INFO,
+                1,
+                getCurrentUser()) != 0;
     }
 
     /**

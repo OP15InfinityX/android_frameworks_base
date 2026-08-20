@@ -71,6 +71,7 @@ import android.hardware.biometrics.BiometricSourceType;
 import android.os.BatteryManager;
 import android.os.RemoteException;
 import android.platform.test.annotations.EnableFlags;
+import android.provider.Settings;
 import android.testing.TestableLooper;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -921,6 +922,70 @@ public class KeyguardIndicationControllerTest extends KeyguardIndicationControll
     }
 
     @Test
+    public void aodBatteryInfoDisabled_dozingDischarging_hidesIndicationArea() {
+        setAodBatteryInfoEnabled(false);
+        try {
+            createController();
+            mController.setVisible(true);
+            BatteryStatus status = new BatteryStatus(BatteryManager.BATTERY_STATUS_DISCHARGING,
+                    90 /* level */, 0 /* plugged */, BatteryManager.CHARGING_POLICY_DEFAULT,
+                    0 /* maxChargingWattage */, true /* present */);
+            mController.getKeyguardCallback().onRefreshBatteryInfo(status);
+            reset(mIndicationArea);
+
+            mStatusBarStateListener.onDozingChanged(true);
+
+            verify(mIndicationArea).setVisibility(VISIBLE);
+            verify(mIndicationArea).setVisibility(GONE);
+        } finally {
+            setAodBatteryInfoEnabled(true);
+        }
+    }
+
+    @Test
+    public void aodBatteryInfoDisabled_dozingCharging_hidesIndicationArea() {
+        setAodBatteryInfoEnabled(false);
+        try {
+            createController();
+            mController.setVisible(true);
+            BatteryStatus status = new BatteryStatus(BatteryManager.BATTERY_STATUS_CHARGING,
+                    80 /* level */, BatteryManager.BATTERY_PLUGGED_AC,
+                    BatteryManager.CHARGING_POLICY_DEFAULT, 0 /* maxChargingWattage */,
+                    true /* present */);
+            mController.getKeyguardCallback().onRefreshBatteryInfo(status);
+            reset(mIndicationArea);
+
+            mStatusBarStateListener.onDozingChanged(true);
+
+            verify(mIndicationArea).setVisibility(VISIBLE);
+            verify(mIndicationArea).setVisibility(GONE);
+        } finally {
+            setAodBatteryInfoEnabled(true);
+        }
+    }
+
+    @Test
+    public void aodBatteryInfoDisabled_lockScreenCharging_stillShowsBatteryIndication() {
+        setAodBatteryInfoEnabled(false);
+        try {
+            createController();
+            BatteryStatus status = new BatteryStatus(BatteryManager.BATTERY_STATUS_CHARGING,
+                    100 /* level */, BatteryManager.BATTERY_PLUGGED_AC,
+                    BatteryManager.CHARGING_POLICY_DEFAULT, 0 /* maxChargingWattage */,
+                    true /* present */);
+            mController.getKeyguardCallback().onRefreshBatteryInfo(status);
+
+            mController.setVisible(true);
+
+            verifyIndicationMessage(
+                    INDICATION_TYPE_BATTERY,
+                    mContext.getString(R.string.keyguard_charged));
+        } finally {
+            setAodBatteryInfoEnabled(true);
+        }
+    }
+
+    @Test
     public void onRequireUnlockForNfc_showsRequireUnlockForNfcIndication() {
         createController();
         mController.setVisible(true);
@@ -1701,6 +1766,14 @@ public class KeyguardIndicationControllerTest extends KeyguardIndicationControll
 
     private int getCurrentUser() {
         return mCurrentUserId;
+    }
+
+    private void setAodBatteryInfoEnabled(boolean enabled) {
+        Settings.System.putIntForUser(
+                mContext.getContentResolver(),
+                Settings.System.AOD_BATTERY_INFO,
+                enabled ? 1 : 0,
+                getCurrentUser());
     }
 
     private void onFaceLockoutError(String errMsg) {

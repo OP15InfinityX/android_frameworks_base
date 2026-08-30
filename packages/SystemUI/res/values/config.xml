@@ -634,7 +634,7 @@
 
     <!-- Whether SystemUI should ignore hardware composer screen decoration support and draw
          screen decorations using normal software overlays only. -->
-    <bool name="config_disableHwcScreenDecorations">false</bool>
+    <bool name="config_disableHwcScreenDecorations">true</bool>
 
     <!-- Controls can query 2 preferred applications for limited number of suggested controls.
          This config value should contain a list of package names of thoses preferred applications.

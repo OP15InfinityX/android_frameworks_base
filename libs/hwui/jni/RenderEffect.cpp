@@ -21,7 +21,7 @@
 #include "SkImageFilter.h"
 #include "SkImageFilters.h"
 #include "SkPoint.h"
-#include "SkGradientShader.h"
+#include "SkGradient.h"
 #include "graphics_jni_helpers.h"
 #include "utils/Blur.h"
 
@@ -47,12 +47,12 @@ static sk_sp<SkImageFilter> maskGradientBlur(sk_sp<SkImageFilter> blurFilter,
             {0.0f, 0.0f},
             {isVertical ? 0.0f : kFadeDistance, isVertical ? kFadeDistance : 0.0f},
     };
-    SkColor colors[2] = {
-            fadeInFromStart ? SK_ColorTRANSPARENT : SK_ColorWHITE,
-            fadeInFromStart ? SK_ColorWHITE : SK_ColorTRANSPARENT,
+    SkColor4f colors[2] = {
+            fadeInFromStart ? SkColors::kTransparent : SkColors::kWhite,
+            fadeInFromStart ? SkColors::kWhite : SkColors::kTransparent,
     };
-    sk_sp<SkShader> maskShader = SkGradientShader::MakeLinear(
-            points, colors, nullptr, 2, SkTileMode::kClamp);
+    sk_sp<SkShader> maskShader = SkShaders::LinearGradient(
+            points, SkGradient({colors, SkTileMode::kClamp}, {}));
     sk_sp<SkImageFilter> maskFilter = SkImageFilters::Shader(std::move(maskShader));
     return SkImageFilters::Blend(SkBlendMode::kDstIn, std::move(blurFilter), std::move(maskFilter));
 }

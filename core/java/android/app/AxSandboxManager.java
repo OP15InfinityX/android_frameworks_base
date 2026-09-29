@@ -19,12 +19,10 @@ import android.annotation.SystemService;
 import android.content.Context;
 import android.os.RemoteException;
 
-
+import com.android.internal.app.HiddenNotificationInfo;
 import com.android.internal.app.IAppLockStateListener;
 import com.android.internal.app.IAppSessionListener;
-import com.android.internal.app.IAxSandboxManager;
 import com.android.internal.app.IHiddenNotificationListener;
-import com.android.internal.app.HiddenNotificationInfo;
 
 import java.util.Collections;
 import java.util.List;
@@ -84,284 +82,6 @@ public class AxSandboxManager {
         }
     }
 
-    private final Context mContext;
-    private final IAxSandboxManager mService;
-
-    /** @hide */
-    public AxSandboxManager(@NonNull Context context, @NonNull IAxSandboxManager service) {
-        mContext = context;
-        mService = service;
-    }
-
-    /**
-     * @hide
-     */
-    public AppLockState getAppLockState(@NonNull String packageName) {
-        try {
-            return AppLockState.fromOrdinal(mService.getAppLockState(packageName));
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void addLockedApp(@NonNull String packageName) {
-        try {
-            mService.addLockedApp(packageName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void removeLockedApp(@NonNull String packageName) {
-        try {
-            mService.removeLockedApp(packageName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public boolean isPackageHidden(@NonNull String packageName) {
-        try {
-            return mService.isPackageHidden(packageName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void setPackageHidden(@NonNull String packageName, boolean hidden) {
-        try {
-            mService.setPackageHidden(packageName, hidden);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    @NonNull
-    public List<String> getLockedPackages() {
-        try {
-            List<String> result = mService.getLockedPackages();
-            return result != null ? result : Collections.emptyList();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    @NonNull
-    public List<String> getHiddenPackages() {
-        try {
-            List<String> result = mService.getHiddenPackages();
-            return result != null ? result : Collections.emptyList();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    @NonNull
-    public List<String> getLockablePackages() {
-        try {
-            List<String> result = mService.getLockablePackages();
-            return result != null ? result : Collections.emptyList();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public boolean isPackageLockable(@NonNull String packageName) {
-        try {
-            return mService.isPackageLockable(packageName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void unlockApp(@NonNull String packageName, int userId) {
-        try {
-            mService.unlockApp(packageName, userId);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void promptUnlock(@NonNull String packageName, int userId) {
-        try {
-            mService.promptUnlock(packageName, userId);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void registerAppLockStateListener(IAppLockStateListener listener) {
-        try {
-            mService.registerAppLockStateListener(listener);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void unregisterAppLockStateListener(IAppLockStateListener listener) {
-        try {
-            mService.unregisterAppLockStateListener(listener);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    public void registerAppSessionListener(IAppSessionListener listener) {
-        try {
-            mService.registerAppSessionListener(listener);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    public void unregisterAppSessionListener(IAppSessionListener listener) {
-        try {
-            mService.unregisterAppSessionListener(listener);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    // ==================== Hidden Notification Listeners ====================
-
-
-    /**
-     * @hide
-     */
-    public void registerHiddenNotificationListener(IHiddenNotificationListener listener) {
-        try {
-            mService.registerHiddenNotificationListener(listener);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void unregisterHiddenNotificationListener(IHiddenNotificationListener listener) {
-        try {
-            mService.unregisterHiddenNotificationListener(listener);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public List<HiddenNotificationInfo> getHiddenNotifications() {
-        try {
-            return mService.getHiddenNotifications();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void onHiddenNotificationPosted(HiddenNotificationInfo info) {
-        try {
-            mService.onHiddenNotificationPosted(info);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void onHiddenNotificationRemoved(String key) {
-        try {
-            mService.onHiddenNotificationRemoved(key);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public boolean isPackageSandboxed(@NonNull String packageName) {
-        try {
-            return mService.isPackageSandboxed(packageName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void addSandboxedPackage(@NonNull String packageName) {
-        try {
-            mService.addSandboxedPackage(packageName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    public void removeSandboxedPackage(@NonNull String packageName) {
-        try {
-            mService.removeSandboxedPackage(packageName);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * @hide
-     */
-    @NonNull
-    public List<String> getSandboxedPackages() {
-        try {
-            List<String> result = mService.getSandboxedPackages();
-            return result != null ? result : Collections.emptyList();
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
     /** @hide */
     public static final int GID_INET = 3003;
     /** @hide */
@@ -386,9 +106,281 @@ public class AxSandboxManager {
     };
 
     /** @hide */
+    public AxSandboxManager(@NonNull Context context) {
+    }
+
+    /** @hide */
+    public boolean isAppLocked(@NonNull String packageName) {
+        return getAppLockState(packageName).needsAuth();
+    }
+
+    /** @hide */
+    public AppLockState getAppLockState(@NonNull String packageName) {
+        try {
+            return AppLockState.fromOrdinal(getService().getSandboxAppLockState(packageName));
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public AppLockState getAppLockStateForUser(@NonNull String packageName, int userId) {
+        try {
+            return AppLockState.fromOrdinal(
+                    getService().getSandboxAppLockStateForUser(packageName, userId));
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void addLockedApp(@NonNull String packageName) {
+        try {
+            getService().addSandboxLockedApp(packageName);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void removeLockedApp(@NonNull String packageName) {
+        try {
+            getService().removeSandboxLockedApp(packageName);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public boolean isPackageHidden(@NonNull String packageName) {
+        try {
+            return getService().isSandboxPackageHidden(packageName);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public boolean isPackageHiddenFromLauncher(@NonNull String packageName) {
+        try {
+            return getService().isSandboxPackageHiddenFromLauncher(packageName);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void setPackageHidden(@NonNull String packageName, boolean hidden) {
+        try {
+            getService().setSandboxPackageHidden(packageName, hidden);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void setPackageHiddenFromLauncher(@NonNull String packageName, boolean hidden) {
+        try {
+            getService().setSandboxPackageHiddenFromLauncher(packageName, hidden);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    @NonNull
+    public List<String> getLockedPackages() {
+        try {
+            List<String> result = getService().getSandboxLockedPackages();
+            return result != null ? result : Collections.emptyList();
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    @NonNull
+    public List<String> getHiddenPackages() {
+        try {
+            List<String> result = getService().getSandboxHiddenPackages();
+            return result != null ? result : Collections.emptyList();
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    @NonNull
+    public List<String> getHiddenFromLauncherPackages() {
+        try {
+            List<String> result = getService().getSandboxHiddenFromLauncherPackages();
+            return result != null ? result : Collections.emptyList();
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    @NonNull
+    public List<String> getLockablePackages() {
+        try {
+            List<String> result = getService().getSandboxLockablePackages();
+            return result != null ? result : Collections.emptyList();
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public boolean isPackageLockable(@NonNull String packageName) {
+        try {
+            return getService().isSandboxPackageLockable(packageName);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void unlockApp(@NonNull String packageName, int userId) {
+        try {
+            getService().unlockSandboxApp(packageName, userId);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void promptUnlock(@NonNull String packageName, int userId) {
+        try {
+            getService().promptSandboxUnlock(packageName, userId);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void registerAppLockStateListener(IAppLockStateListener listener) {
+        try {
+            getService().registerSandboxAppLockStateListener(listener);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void unregisterAppLockStateListener(IAppLockStateListener listener) {
+        try {
+            getService().unregisterSandboxAppLockStateListener(listener);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void registerAppSessionListener(IAppSessionListener listener) {
+        try {
+            getService().registerSandboxAppSessionListener(listener);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void unregisterAppSessionListener(IAppSessionListener listener) {
+        try {
+            getService().unregisterSandboxAppSessionListener(listener);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void registerHiddenNotificationListener(IHiddenNotificationListener listener) {
+        try {
+            getService().registerSandboxHiddenNotificationListener(listener);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void unregisterHiddenNotificationListener(IHiddenNotificationListener listener) {
+        try {
+            getService().unregisterSandboxHiddenNotificationListener(listener);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public List<HiddenNotificationInfo> getHiddenNotifications() {
+        try {
+            return getService().getSandboxHiddenNotifications();
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void onHiddenNotificationPosted(HiddenNotificationInfo info) {
+        try {
+            getService().onSandboxHiddenNotificationPosted(info);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void onHiddenNotificationRemoved(String key) {
+        try {
+            getService().onSandboxHiddenNotificationRemoved(key);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public boolean isPackageSandboxed(@NonNull String packageName) {
+        try {
+            return getService().isSandboxPackageSandboxed(packageName);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void addSandboxedPackage(@NonNull String packageName) {
+        try {
+            getService().addSandboxPackage(packageName);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    public void removeSandboxedPackage(@NonNull String packageName) {
+        try {
+            getService().removeSandboxPackage(packageName);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
+    @NonNull
+    public List<String> getSandboxedPackages() {
+        try {
+            List<String> result = getService().getSandboxPackages();
+            return result != null ? result : Collections.emptyList();
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
     public void setRestrictedGids(@NonNull String packageName, int[] gids) {
         try {
-            mService.setRestrictedGids(packageName, gids);
+            getService().setSandboxRestrictedGids(packageName, gids);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -397,17 +389,16 @@ public class AxSandboxManager {
     /** @hide */
     public int[] getRestrictedGids(@NonNull String packageName) {
         try {
-            return mService.getRestrictedGids(packageName);
+            return getService().getSandboxRestrictedGids(packageName);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
     }
 
-
     /** @hide */
     public boolean isSandboxDataIsolationEnabled(@NonNull String packageName) {
         try {
-            return mService.isSandboxDataIsolationEnabled(packageName);
+            return getService().isSandboxDataIsolationEnabled(packageName);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -416,7 +407,7 @@ public class AxSandboxManager {
     /** @hide */
     public void setSandboxDataIsolationEnabled(@NonNull String packageName, boolean enabled) {
         try {
-            mService.setSandboxDataIsolationEnabled(packageName, enabled);
+            getService().setSandboxDataIsolationEnabled(packageName, enabled);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -425,16 +416,17 @@ public class AxSandboxManager {
     /** @hide */
     public boolean isSpoofSettingEnabled(@NonNull String packageName, @NonNull String settingKey) {
         try {
-            return mService.isSpoofSettingEnabled(packageName, settingKey);
+            return getService().isSandboxSpoofSettingEnabled(packageName, settingKey);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
     }
 
     /** @hide */
-    public void setSpoofSettingEnabled(@NonNull String packageName, @NonNull String settingKey, boolean enabled) {
+    public void setSpoofSettingEnabled(@NonNull String packageName, @NonNull String settingKey,
+            boolean enabled) {
         try {
-            mService.setSpoofSettingEnabled(packageName, settingKey, enabled);
+            getService().setSandboxSpoofSettingEnabled(packageName, settingKey, enabled);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -444,7 +436,8 @@ public class AxSandboxManager {
     @NonNull
     public List<String> getEnabledSpoofSettings(@NonNull String packageName) {
         try {
-            return mService.getEnabledSpoofSettings(packageName);
+            List<String> result = getService().getSandboxEnabledSpoofSettings(packageName);
+            return result != null ? result : Collections.emptyList();
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -454,9 +447,13 @@ public class AxSandboxManager {
     @Nullable
     public String getSpoofedSetting(@NonNull String callingPackage, @NonNull String settingName) {
         try {
-            return mService.getSpoofedSetting(callingPackage, settingName);
+            return getService().getSandboxSpoofedSetting(callingPackage, settingName);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
+    }
+
+    private IActivityManager getService() {
+        return ActivityManager.getService();
     }
 }

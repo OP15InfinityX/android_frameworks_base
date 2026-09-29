@@ -25,8 +25,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
@@ -60,12 +62,13 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.dimensionResource
 import com.android.compose.animation.Expandable
 import com.android.compose.animation.rememberExpandableController
+import com.android.systemui.animation.Expandable as SystemUiExpandable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.res.stringResource
-import com.android.systemui.animation.Expandable as SystemUiExpandable
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.AlphaIconBg
 import com.android.systemui.axdynamicbar.shared.AlphaSecondary
@@ -112,6 +115,7 @@ fun AxDynamicBarChip(
 
     val touchSlop = LocalViewConfiguration.current.touchSlop
     val expandableController = rememberExpandableController(color = Color.Transparent, shape = ChipShape)
+    var currentExpandable by remember { mutableStateOf<SystemUiExpandable?>(null) }
 
     val motionScheme = MaterialTheme.motionScheme
 
@@ -143,8 +147,9 @@ fun AxDynamicBarChip(
                                 change.consume()
                                 val current = state?.event
                                 if (current is IslandEvent.AospChip) {
-                                    val expandable = SystemUiExpandable(expandableController.transitionSource)
-                                    if (!viewModel.handleAospChipTap(current, expandable)) {
+                                    val expandable = currentExpandable
+                                    if (expandable == null ||
+                                        !viewModel.handleAospChipTap(current, expandable)) {
                                         viewModel.statusBarExpansion.toggle()
                                     }
                                 } else {
@@ -191,7 +196,8 @@ fun AxDynamicBarChip(
                 controller = expandableController,
                 onClick = null,
                 defaultMinSize = false,
-            ) { _ ->
+            ) { expandable ->
+                currentExpandable = expandable
                 AnimatedContent(
                     targetState = chipDisplayKey(displayEvent, isAlert),
                     transitionSpec = {

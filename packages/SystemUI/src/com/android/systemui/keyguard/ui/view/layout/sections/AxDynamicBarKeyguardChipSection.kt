@@ -1,6 +1,8 @@
 package com.android.systemui.keyguard.ui.view.layout.sections
 
 import android.content.Context
+import android.os.UserHandle
+import android.provider.Settings
 import android.transition.TransitionManager
 import android.view.View
 import android.view.ViewGroup
@@ -13,9 +15,11 @@ import com.android.compose.theme.PlatformTheme
 import com.android.systemui.axdynamicbar.ui.AxDynamicBarChipViewModel
 import com.android.systemui.axdynamicbar.ui.compose.AxDynamicBarKeyguardChip
 import com.android.systemui.axdynamicbar.model.IslandEvent
+import com.android.systemui.customization.clocks.R as clocksR
 import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
 import com.android.systemui.keyguard.shared.model.ClockSize
 import com.android.systemui.keyguard.shared.model.KeyguardSection
+import com.android.systemui.keyguard.ui.viewmodel.KeyguardClockViewModel
 import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
@@ -35,15 +39,15 @@ private const val UNSET = -1
 private val HIDDEN_VIEW_IDS = listOf(
     R.id.shared_notification_container,
     R.id.notificationShelf,
-    R.id.shared_notification_container,
-    R.id.notificationShelf,
     R.id.bc_smartspace_view,
     R.id.smartspace_card_pager,
     R.id.smartspace_page_indicator,
     R.id.keyguard_slice_view,
     R.id.keyguard_weather_area,
+    R.id.clock_ls,
+    R.id.keyguard_widgets,
+    R.id.keyguard_info_widgets,
 )
-
 
 private fun Float.dpToPx(context: Context): Int =
     (this * context.resources.displayMetrics.density + 0.5f).toInt()
@@ -55,12 +59,28 @@ constructor(
     private val viewModel: AxDynamicBarChipViewModel,
     private val indicationController: KeyguardIndicationController,
     private val clockInteractor: KeyguardClockInteractor,
+    private val keyguardClockViewModel: KeyguardClockViewModel,
 ) : KeyguardSection() {
 
     private val chipViewId = R.id.ax_dynamic_bar_keyguard_chip
     private var bindHandle: DisposableHandle? = null
     private var expansionHandle: DisposableHandle? = null
     private var enforceAction: Runnable? = null
+
+    private val isCustomClockEnabled: Boolean
+        get() = Settings.Secure.getIntForUser(
+            context.contentResolver,
+            Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_STYLE,
+            0,
+            UserHandle.USER_CURRENT
+        ) != 0
+
+    private fun getSmallClockBottomPx(): Int {
+        val smallClockTopMargin = keyguardClockViewModel.getSmallClockTopMargin() +
+            context.resources.getDimensionPixelSize(R.dimen.keyguard_clock_top_margin)
+        val smallClockHeight = context.resources.getDimensionPixelSize(clocksR.dimen.small_clock_height)
+        return smallClockTopMargin + smallClockHeight
+    }
 
     override fun addViews(constraintLayout: ConstraintLayout) {
         val composeView = AxComposeView(context).apply { id = chipViewId }
@@ -137,6 +157,7 @@ constructor(
                         if (!viewModel.keyguardExpansion.isExpanded.value) {
                             applyCollapsedLp(composeView, viewModel.isLowUdfps.value)
                             setHiddenViewsVisibility(constraintLayout, View.VISIBLE)
+                            ScrimUtils.get().updateDepthWallpaperVisibility()
                         }
                     }
                 }
@@ -170,6 +191,7 @@ constructor(
         TransitionManager.endTransitions(constraintLayout)
         if (expanded) {
             setHiddenViewsVisibility(constraintLayout, View.INVISIBLE)
+            ScrimUtils.get().hideDepthWallpaper()
             applyExpandedLp(composeView)
         }
     }
@@ -210,7 +232,11 @@ constructor(
                 expanded -> {
                     constrainWidth(chipViewId, ConstraintSet.MATCH_CONSTRAINT)
                     constrainHeight(chipViewId, ConstraintSet.MATCH_CONSTRAINT)
-                    connect(chipViewId, ConstraintSet.TOP, ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL, ConstraintSet.BOTTOM)
+                    if (isCustomClockEnabled) {
+                        connect(chipViewId, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP, getSmallClockBottomPx())
+                    } else {
+                        connect(chipViewId, ConstraintSet.TOP, ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL, ConstraintSet.BOTTOM)
+                    }
                     connect(chipViewId, ConstraintSet.BOTTOM, R.id.device_entry_icon_view, ConstraintSet.TOP, bottomProtectionPx)
                     connect(chipViewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
                     connect(chipViewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
@@ -238,13 +264,19 @@ constructor(
         val bottomProtectionPx = EXPANDED_BOTTOM_PROTECTION_DP.dpToPx(context)
         lp.width = ConstraintLayout.LayoutParams.MATCH_PARENT
         lp.height = 0
-        lp.topToBottom = ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL
+        if (isCustomClockEnabled) {
+            lp.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+            lp.topMargin = getSmallClockBottomPx()
+            lp.topToBottom = UNSET
+        } else {
+            lp.topToBottom = ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL
+            lp.topToTop = UNSET
+            lp.topMargin = 0
+        }
         lp.bottomToTop = R.id.device_entry_icon_view
         lp.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
         lp.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
-        lp.topMargin = 0
         lp.bottomMargin = bottomProtectionPx
-        lp.topToTop = UNSET
         lp.bottomToBottom = UNSET
         lp.startToEnd = UNSET
         lp.endToStart = UNSET

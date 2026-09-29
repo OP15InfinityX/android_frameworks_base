@@ -774,6 +774,10 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
         return mNotificationsScrim.getScaleY();
     }
 
+    public float getScrimBehindAlpha() {
+        return mScrimBehindAlphaKeyguard;
+    }
+
     public void onTrackingStarted() {
         mDarkenWhileDragging = !mKeyguardStateController.canDismissLockScreen();
         if (!mKeyguardUnlockAnimationController.isPlayingCannedUnlockAnimation()) {
@@ -1234,6 +1238,7 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
         if (mScrimBehind != null) {
             dispatchBackScrimState(mScrimBehind.getViewAlpha());
         }
+        com.android.systemui.util.ScrimUtils.get(mScrimBehind.getContext()).onScrimDispatched();
     }
 
     /**

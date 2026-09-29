@@ -1903,8 +1903,16 @@ public class ActivityTaskSupervisor implements RecentTasks.Callbacks {
             }
             mBalController.checkActivityAllowedToClearTask(
                             task, callingUid, callingPid, callerActivityClassName);
-            AxSandboxService.get().removeTask(task, reason);
-            GameSpaceService.get().removeTask(task, reason);
+            final IAxSandboxService sandboxService =
+                    LocalServices.getService(IAxSandboxService.class);
+            if (sandboxService != null) {
+                sandboxService.removeTask(task, reason);
+            }
+            final GameSpaceService gameSpaceService =
+                    LocalServices.getService(GameSpaceService.class);
+            if (gameSpaceService != null) {
+                gameSpaceService.removeTask(task);
+            }
         } finally {
             task.mInRemoveTask = false;
             mService.mChainTracker.endPartial();
@@ -2223,17 +2231,6 @@ public class ActivityTaskSupervisor implements RecentTasks.Callbacks {
         if (mService.mShuttingDown) {
             mService.mGlobalLock.notifyAll();
         }
-    }
-
-    boolean reportResumedActivityLocked(ActivityRecord r) {
-        this.mStoppingActivities.remove(r);
-        Task rootTask = r.getRootTask();
-        if (rootTask.getDisplayArea().allResumedActivitiesComplete()) {
-            this.mRootWindowContainer.ensureActivitiesVisible();
-            this.mRootWindowContainer.executeAppTransitionForAllDisplay();
-            return true;
-        }
-        return false;
     }
 
     // Called when WindowManager has finished animating the launchingBehind activity to the back.
@@ -3027,8 +3024,8 @@ public class ActivityTaskSupervisor implements RecentTasks.Callbacks {
                     moveHomeTaskForward = false;
                 }
 
-                AxSandboxService.get().clearUnlockedApp();
-                AxSandboxService.get().lockTopApp(task, "startActivityFromRecents");
+                IAxSandboxService.get().clearUnlockedApp();
+                IAxSandboxService.get().lockTopApp(task, "startActivityFromRecents");
 
                 if (moveHomeTaskForward) {
                     // We always want to return to the home activity instead of the recents

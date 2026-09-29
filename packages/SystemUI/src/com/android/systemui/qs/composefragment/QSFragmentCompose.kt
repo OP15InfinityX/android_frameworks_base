@@ -167,6 +167,7 @@ import com.android.systemui.statusbar.policy.ConfigurationController
 import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener
 import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
 import com.android.systemui.util.LifecycleFragment
+import com.android.systemui.util.ScrimUtils
 import com.android.systemui.util.asIndenting
 import com.android.systemui.util.kotlin.pairwise
 import com.android.systemui.util.printSection
@@ -543,6 +544,12 @@ constructor(
         viewModel.panelExpansionFraction = panelExpansionFraction
         viewModel.squishinessFraction = squishinessFraction
         viewModel.proposedTranslation = headerTranslation
+        val currentContext = context ?: view?.context
+        if (currentContext != null) {
+            ScrimUtils.get(currentContext).setQsExpansion(qsExpansionFraction)
+        } else {
+            ScrimUtils.get().setQsExpansion(qsExpansionFraction)
+        }
     }
 
     override fun setContainerController(controller: QSContainerController?) {

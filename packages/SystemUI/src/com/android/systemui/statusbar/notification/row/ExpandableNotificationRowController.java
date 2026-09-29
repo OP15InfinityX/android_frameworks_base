@@ -39,7 +39,6 @@ import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.UiEventLogger;
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.systemui.Flags;
-import com.android.systemui.applocker.AxAppLockerHelper;
 import com.android.systemui.flags.FeatureFlagsClassic;
 import com.android.systemui.plugins.FalsingManager;
 import com.android.systemui.plugins.PluginManager;
@@ -70,6 +69,7 @@ import com.android.systemui.statusbar.policy.dagger.RemoteInputViewSubcomponent;
 import com.android.systemui.util.ScrimUtils;
 import com.android.systemui.util.time.SystemClock;
 import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor;
+import com.axion.applocker.AxAppLockerHelper;
 
 import com.google.android.msdl.data.model.MSDLToken;
 import com.google.android.msdl.domain.MSDLPlayer;

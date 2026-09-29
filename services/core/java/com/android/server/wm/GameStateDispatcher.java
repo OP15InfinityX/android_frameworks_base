@@ -15,12 +15,16 @@
  */
 package com.android.server.wm;
 
+import android.app.ActivityManager;
+import android.app.IActivityManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.BatteryManager;
 import android.os.FileUtils;
+import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -36,6 +40,9 @@ import java.util.List;
 class GameStateDispatcher {
 
     private static final String TAG = "GameStateDispatcher";
+    private static final ComponentName GAME_SPACE_SESSION_COMPONENT = new ComponentName(
+            "io.chaldeaprjkt.gamespace",
+            "io.chaldeaprjkt.gamespace.gamebar.SessionService");
     private static final String KEY_GAMING_MODE_ACTIVE = "ax_gaming_mode_active";
     private static final String KEY_BYPASS_CHARGE_ENABLED = "bypass_charge_enabled";
     public static final String KEY_BYPASS_CHARGE_ACTIVE = "bypass_charge_active";
@@ -47,6 +54,7 @@ class GameStateDispatcher {
 
     private final Context mContext;
     private final List<IGameSpaceCallback> mCallbacks;
+    private final IActivityManager mActivityManager;
 
     private boolean mGameBypassRequested;
     private boolean mManualBypassRequested;
@@ -55,6 +63,7 @@ class GameStateDispatcher {
     GameStateDispatcher(Context context, List<IGameSpaceCallback> callbacks) {
         mContext = context;
         mCallbacks = callbacks;
+        mActivityManager = ActivityManager.getService();
 
         mBypassActive = Settings.Global.getInt(mContext.getContentResolver(),
                 KEY_BYPASS_CHARGE_ACTIVE, 0) == 1;
@@ -93,8 +102,30 @@ class GameStateDispatcher {
             }
         }
 
+        // The existing GameSpace app starts SessionService through its callback.
+        // Fall back to the new direct path only when that callback is unavailable.
+        if (mCallbacks.isEmpty()) {
+            updateGameSession(active, packageName);
+        }
+
         mGameBypassRequested = active && bypassChargeEnabled();
         updateBypassState();
+    }
+
+    private void updateGameSession(boolean active, String packageName) {
+        final Intent intent = new Intent().setComponent(GAME_SPACE_SESSION_COMPONENT);
+        try {
+            if (active && packageName != null) {
+                intent.setAction("game_start").putExtra("package_name", packageName);
+                mActivityManager.startService(null, intent, null, false,
+                        mContext.getOpPackageName(), mContext.getAttributionTag(),
+                        UserHandle.USER_CURRENT);
+            } else {
+                mActivityManager.stopService(null, intent, null, UserHandle.USER_CURRENT);
+            }
+        } catch (RemoteException | RuntimeException e) {
+            Slog.w(TAG, "Failed to update GameSpace session", e);
+        }
     }
 
     void boostGame(boolean enable) {

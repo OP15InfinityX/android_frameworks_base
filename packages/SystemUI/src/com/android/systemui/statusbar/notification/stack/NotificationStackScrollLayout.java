@@ -112,7 +112,6 @@ import com.android.systemui.statusbar.notification.LaunchAnimationParameters;
 import com.android.systemui.statusbar.notification.NotificationTransitionAnimatorController;
 import com.android.systemui.statusbar.notification.NotificationUtils;
 import com.android.systemui.statusbar.notification.PhysicsPropertyAnimator;
-import com.android.systemui.statusbar.notification.collection.EntryAdapter;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
 import com.android.systemui.statusbar.notification.collection.render.GroupExpansionManager;
 import com.android.systemui.statusbar.notification.collection.render.GroupMembershipManager;
@@ -149,7 +148,7 @@ import com.android.systemui.util.ListenerSet;
 import com.android.systemui.util.state.DownstreamObservableState;
 import com.android.systemui.util.state.ObservableState;
 
-import com.android.systemui.applocker.AxAppLockerHelper;
+import com.axion.applocker.AxAppLockerHelper;
 import android.service.notification.StatusBarNotification;
 
 import com.google.errorprone.annotations.CompileTimeConstant;
@@ -7744,14 +7743,14 @@ public class NotificationStackScrollLayout
         for (int i = 0; i < childCount; i++) {
             ExpandableView child = getChildAtIndex(i);
             if (child instanceof ExpandableNotificationRow row) {
-                EntryAdapter entry = row.getEntryAdapter();
-                if (entry == null) continue;
-                StatusBarNotification sbn = entry.getSbn();
+                StatusBarNotification sbn = row.getEntryAdapter() != null
+                        ? row.getEntryAdapter().getSbn() : null;
+                if (sbn == null) continue;
                 if (packageName != null && !packageName.equals(sbn.getPackageName())) {
                     continue;
                 }
                 row.setHideSensitive(hideSensitive, false, 0, 0);
-                onChildHeightChanged(child, true, "NSSL.onAppLockerUpdate");
+                onChildHeightChanged(child, true, "applocker-update");
             }
         }
         updateContentHeight();

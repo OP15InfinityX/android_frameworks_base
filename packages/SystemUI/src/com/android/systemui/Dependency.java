@@ -57,9 +57,20 @@ import com.android.systemui.statusbar.phone.ScreenOffAnimationController;
 import com.android.systemui.statusbar.phone.SystemUIDialogManager;
 import com.android.systemui.statusbar.policy.BluetoothController;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController;
+import com.android.systemui.statusbar.policy.HotspotController;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.window.StatusBarWindowControllerStore;
 import com.android.systemui.tuner.TunerService;
+
+import com.android.systemui.plugins.ActivityStarter;
+import com.android.systemui.bluetooth.ui.viewModel.BluetoothDetailsContentViewModel;
+import com.android.systemui.statusbar.connectivity.AccessPointController;
+import com.android.systemui.statusbar.connectivity.NetworkController;
+import com.android.systemui.qs.tiles.dialog.InternetDialogManager;
+import com.android.systemui.media.dialog.MediaOutputDialogManager;
+import com.android.systemui.statusbar.policy.ConfigurationController;
+import com.android.systemui.statusbar.policy.FlashlightController;
+
 
 import dagger.Lazy;
 
@@ -160,8 +171,15 @@ public class Dependency {
     @Inject Lazy<SysUIStateDisplaysInteractor> mSysUIStateDisplaysInteractor;
     @Inject Lazy<LockscreenSmartspaceController> mLockscreenSmartspaceControllerLazy;
     @Inject Lazy<RotationPolicyWrapper> mRotationPolicyWrapperLazy;
-    @Inject Lazy<InternetDialogManager> mInternetDialogManager;
+    @Inject Lazy<ActivityStarter> mActivityStarter;
     @Inject Lazy<AccessPointController> mAccessPointController;
+    @Inject Lazy<NetworkController> mNetworkController;
+    @Inject Lazy<InternetDialogManager> mInternetDialogManager;
+    @Inject Lazy<MediaOutputDialogManager> mMediaOutputDialogManager;
+    @Inject Lazy<ConfigurationController> mConfigurationController;
+    @Inject Lazy<FlashlightController> mFlashlightController;
+    @Inject Lazy<BluetoothDetailsContentViewModel> mBluetoothDetailsContentViewModel;
+    @Inject Lazy<HotspotController> mHotspotController;
 
     @Inject
     public Dependency() {
@@ -208,6 +226,13 @@ public class Dependency {
         mProviders.put(DialogTransitionAnimator.class, mDialogTransitionAnimatorLazy::get);
         mProviders.put(UserTracker.class, mUserTrackerLazy::get);
         mProviders.put(SysUIStateDisplaysInteractor.class, mSysUIStateDisplaysInteractor::get);
+        mProviders.put(MediaOutputDialogManager.class, mMediaOutputDialogManager::get);
+        mProviders.put(NetworkController.class, mNetworkController::get);
+        mProviders.put(ConfigurationController.class, mConfigurationController::get);
+        mProviders.put(FlashlightController.class, mFlashlightController::get);
+        mProviders.put(BluetoothDetailsContentViewModel.class, mBluetoothDetailsContentViewModel::get);
+        mProviders.put(ActivityStarter.class, mActivityStarter::get);
+        mProviders.put(HotspotController.class, mHotspotController::get);
         mProviders.put(
                 StatusBarWindowControllerStore.class, mStatusBarWindowControllerStoreLazy::get);
         mProviders.put(LockscreenSmartspaceController.class,

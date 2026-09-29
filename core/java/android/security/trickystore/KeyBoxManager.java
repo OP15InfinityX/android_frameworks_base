@@ -43,11 +43,10 @@ import java.util.regex.Pattern;
  */
 public class KeyBoxManager {
     private static final String TAG = "KeyBoxManager";
-
-    private final Map<String, KeyBox> mKeyboxes = new ConcurrentHashMap<>();
-    
     private static final Pattern PEM_HEADER = Pattern.compile("-----BEGIN ([^-]+)-----");
     private static final Pattern XML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
+
+    private final Map<String, KeyBox> mKeyboxes = new ConcurrentHashMap<>();
 
     /** @hide */
     public static class KeyBox {
@@ -281,8 +280,8 @@ public class KeyBoxManager {
 
     private String detectPemType(String pem) {
         if (pem == null) return null;
-        Matcher m = PEM_HEADER.matcher(pem);
-        return m.find() ? m.group(1).trim().toUpperCase() : null;
+        Matcher matcher = PEM_HEADER.matcher(pem);
+        return matcher.find() ? matcher.group(1).trim().toUpperCase() : null;
     }
 
     private byte[] parsePemContent(String pem) {

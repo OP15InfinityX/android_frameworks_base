@@ -41,6 +41,9 @@ enum class GlobalActionType(val configKey: String) {
         private val KEY_MAP = entries.associateBy { it.configKey }
 
         fun fromConfigKey(configKey: String): GlobalActionType? {
+            if (configKey == "devicecontrols") {
+                return DEVICECONTROLS
+            }
             return KEY_MAP[configKey]
         }
     }

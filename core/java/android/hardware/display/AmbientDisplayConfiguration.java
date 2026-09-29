@@ -45,7 +45,6 @@ import java.util.Map;
 public class AmbientDisplayConfiguration {
     private static final int DEFAULT_DOZE_PEEK_DURATION_SECONDS = 5;
     private static final IntentFilter sIntentFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-    private static final long BATTERY_STATUS_CACHE_TTL_MS = 5000; // 5 seconds cache
 
     private final Context mContext;
     private final boolean mAlwaysOnByDefault;
@@ -54,10 +53,6 @@ public class AmbientDisplayConfiguration {
     private final boolean mDozeEnabledByDefault;
     private final boolean mTapGestureEnabledByDefault;
     private final boolean mDoubleTapGestureEnabledByDefault;
-    
-    // Battery status cache
-    private boolean mCachedChargingStatus = false;
-    private long mBatteryStatusCacheTime = 0;
 
     /** Copied from android.provider.Settings.Secure since these keys are hidden. */
     private static final String[] DOZE_SETTINGS = {
@@ -372,38 +367,16 @@ public class AmbientDisplayConfiguration {
 
     private boolean alwaysOnChargingEnabled(int user) {
         if (alwaysOnChargingEnabledSetting(user)) {
-            long currentTime = System.currentTimeMillis();
-            
-            // Use cached value if it's still valid
-            if (currentTime - mBatteryStatusCacheTime < BATTERY_STATUS_CACHE_TTL_MS) {
-                return mCachedChargingStatus;
-            }
-            
-            // Update cache with fresh battery status
-            final Intent intent = mContext.registerReceiver(null, sIntentFilter, Context.RECEIVER_NOT_EXPORTED);
-            if (intent != null) {
-                int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-                int plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
-                
-                boolean chargingStatus;
-                
-                // Check if we have valid battery status and plugged values
-                if (status == -1 || plugged == -1) {
-                    // Fallback to original logic if new values are invalid
-                    chargingStatus = plugged != 0;
-                } else {
-                    boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                                status == BatteryManager.BATTERY_STATUS_FULL;
-                    boolean isPlugged = plugged == BatteryManager.BATTERY_PLUGGED_AC || 
-                                plugged == BatteryManager.BATTERY_PLUGGED_USB ||
-                                plugged == BatteryManager.BATTERY_PLUGGED_WIRELESS;
-                    chargingStatus = isPlugged && isCharging;
+            try {
+                final Intent intent = mContext.registerReceiver(null, sIntentFilter, Context.RECEIVER_NOT_EXPORTED);
+                if (intent != null) {
+                    int plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
+                    int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                    return plugged > 0
+                            || status == BatteryManager.BATTERY_STATUS_CHARGING
+                            || status == BatteryManager.BATTERY_STATUS_FULL;
                 }
-                
-                // Update cache
-                mCachedChargingStatus = chargingStatus;
-                mBatteryStatusCacheTime = currentTime;
-                return chargingStatus;
+            } catch (Exception ignored) {
             }
         }
         return false;

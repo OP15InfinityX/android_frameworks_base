@@ -324,7 +324,6 @@ import android.webkit.WebViewBootstrapFrameworkInitializer;
 import com.android.internal.R;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.app.IAppOpsService;
-import com.android.internal.app.IAxSandboxManager;
 import com.android.internal.app.IBatteryStats;
 import com.android.internal.app.ISoundTriggerService;
 import com.android.internal.app.IVoiceInteractionManagerService;
@@ -624,7 +623,10 @@ public final class SystemServiceRegistry {
                 new CachedServiceFetcher<DropBoxManager>() {
             @Override
             public DropBoxManager createService(ContextImpl ctx) throws ServiceNotFoundException {
-                IBinder b = ServiceManager.getServiceOrThrow(Context.DROPBOX_SERVICE);
+                IBinder b = ServiceManager.getService(Context.DROPBOX_SERVICE);
+                if (b == null) {
+                    return null;
+                }
                 IDropBoxManagerService service = IDropBoxManagerService.Stub.asInterface(b);
                 return new DropBoxManager(ctx, service);
             }});
@@ -1058,12 +1060,7 @@ public final class SystemServiceRegistry {
                 new CachedServiceFetcher<AxSandboxManager>() {
             @Override
             public AxSandboxManager createService(ContextImpl ctx) {
-                IBinder b = ServiceManager.getService(Context.AX_SANDBOX_SERVICE);
-                if (b == null) {
-                    return null;
-                }
-                IAxSandboxManager service = IAxSandboxManager.Stub.asInterface(b);
-                return new AxSandboxManager(ctx.getOuterContext(), service);
+                return new AxSandboxManager(ctx.getOuterContext());
             }});
 
         registerService(Context.APP_LOCK_SERVICE, AppLockManager.class,
@@ -1336,7 +1333,10 @@ public final class SystemServiceRegistry {
                 new StaticServiceFetcher<PersistentDataBlockManager>() {
             @Override
             public PersistentDataBlockManager createService() throws ServiceNotFoundException {
-                IBinder b = ServiceManager.getServiceOrThrow(Context.PERSISTENT_DATA_BLOCK_SERVICE);
+                IBinder b = ServiceManager.getService(Context.PERSISTENT_DATA_BLOCK_SERVICE);
+                if (b == null) {
+                    return null;
+                }
                 IPersistentDataBlockService persistentDataBlockService =
                         IPersistentDataBlockService.Stub.asInterface(b);
                 if (persistentDataBlockService != null) {
@@ -1352,7 +1352,10 @@ public final class SystemServiceRegistry {
                 new StaticServiceFetcher<OemLockManager>() {
             @Override
             public OemLockManager createService() throws ServiceNotFoundException {
-                IBinder b = ServiceManager.getServiceOrThrow(Context.OEM_LOCK_SERVICE);
+                IBinder b = ServiceManager.getService(Context.OEM_LOCK_SERVICE);
+                if (b == null) {
+                    return null;
+                }
                 IOemLockService oemLockService = IOemLockService.Stub.asInterface(b);
                 if (oemLockService != null) {
                     return new OemLockManager(oemLockService);
@@ -2354,7 +2357,8 @@ public final class SystemServiceRegistry {
                 case Context.CONTEXTHUB_SERVICE:
                 case Context.VIRTUALIZATION_SERVICE:
                 case Context.VIRTUAL_DEVICE_SERVICE:
-                case Context.AX_SANDBOX_SERVICE:
+                case Context.PERSISTENT_DATA_BLOCK_SERVICE:
+                case Context.OEM_LOCK_SERVICE:
                     return null;
                 case Context.DROPBOX_SERVICE:
                     // If the Dropbox service is missing, we don't want to trigger a WTF, because

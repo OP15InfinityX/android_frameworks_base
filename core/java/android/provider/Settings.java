@@ -7728,6 +7728,18 @@ public final class Settings {
         public static final String QS_TILE_ICON_SHAPE = "qs_tile_icon_shape";
 
         /**
+         * Classic tile icon size in dp for QS panel
+         * @hide
+         */
+        public static final String QS_CLASSIC_TILE_ICON_SIZE = "qs_classic_tile_icon_size";
+
+        /**
+         * Row spacing in dp for classic QS panel style
+         * @hide
+         */
+        public static final String QS_CLASSIC_TILE_ROW_SPACING = "qs_classic_tile_row_spacing";
+
+        /**
          * Select QS tile animation style
          * @hide
          */
@@ -7880,6 +7892,12 @@ public final class Settings {
          * @hide
          */
         public static final String VOLUME_SLIDER_GRADIENT = "volume_slider_gradient";
+
+        /**
+         * Gradient on custom lockscreen clock styles
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_GRADIENT = "lock_screen_custom_clock_gradient";
 
         /**
          * Gradient color mode
@@ -14808,44 +14826,22 @@ public final class Settings {
         public static final String HBM_SETTING_KEY =
                 "com.android.server.display.HBM_SETTING_KEY";
 
-        /**
-         * @hide
-         */
+        // Keep the existing per-user spoof configuration keys for upgrades from 3.12/4.0.
+        /** @hide */
         public static final String SPOOF_PIF_CONFIG = "spoof_pif_config";
-
-        /**
-         * @hide
-         */
+        /** @hide */
         public static final String SPOOF_PIF_PHOTOS = "spoof_pif_photos";
-
-        /**
-         * @hide
-         */
+        /** @hide */
         public static final String SPOOF_PIF_NETFLIX = "spoof_pif_netflix";
-
-        /**
-         * @hide
-         */
+        /** @hide */
         public static final String SPOOF_PIF_SNAPCHAT = "spoof_pif_snapchat";
-
-        /**
-         * @hide
-         */
+        /** @hide */
         public static final String SPOOF_GAMEPROPS_CONFIG = "spoof_gameprops_config";
-
-        /**
-         * @hide
-         */
+        /** @hide */
         public static final String SPOOF_TRICKYSTORE_TARGET = "spoof_trickystore_target";
-
-        /**
-         * @hide
-         */
+        /** @hide */
         public static final String SPOOF_TRICKYSTORE_KEYBOX = "spoof_trickystore_keybox";
-
-        /**
-         * @hide
-         */
+        /** @hide */
         public static final String SPOOF_TRICKYSTORE_PATCH = "spoof_trickystore_patch";
 
         /**
@@ -15088,6 +15084,48 @@ public final class Settings {
          * @hide
          */
         public static final String NOTIFICATION_ROW_TRANSPARENCY_LOCKSCREEN = "notification_row_transparency_lockscreen";
+
+        /**
+         * Lockscreen custom clock face
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_STYLE = "lock_screen_custom_clock_style";
+
+        /**
+         * Whether to use default, system accent or custom color for lock screen clock text
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_COLOR_MODE = "lock_screen_custom_clock_color_mode";
+
+        /**
+         * Custom color for lock screen clock text
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_CUSTOM_COLOR = "lock_screen_custom_clock_custom_color";
+
+        /**
+         * Lock screen clock text opacity (0-100)
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_OPACITY = "lock_screen_custom_clock_opacity";
+
+        /**
+         * Adjust top margin for custom clock
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_MARGIN_TOP = "lock_screen_custom_clock_margin_top";
+
+        /**
+         * Custom clock size
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_SIZE = "lock_screen_custom_clock_size_scale";
+
+        /**
+         * Custom clock animation
+         * @hide
+         */
+        public static final String LOCK_SCREEN_CUSTOM_CLOCK_AOD_ANIM = "lock_screen_custom_clock_aod_anim";
 
         /**
          * Keys we no longer back up under the current schema, but want to continue to
@@ -15797,6 +15835,46 @@ public final class Settings {
         @FlaggedApi("com.android.server.notification.favorites_incoming_call_lights")
         public static final String LIGHT_ANIMATION_FAVORITE_CALLS_ENABLED =
                 "light_animation_favorite_calls_enabled";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_PIF_CONFIG = "spoof_pif_config";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_PIF_PHOTOS = "spoof_pif_photos";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_PIF_NETFLIX = "spoof_pif_netflix";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_PIF_SNAPCHAT = "spoof_pif_snapchat";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_GAMEPROPS_CONFIG = "spoof_gameprops_config";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_TRICKYSTORE_TARGET = "spoof_trickystore_target";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_TRICKYSTORE_KEYBOX = "spoof_trickystore_keybox";
+
+        /**
+         * @hide
+         */
+        public static final String SPOOF_TRICKYSTORE_PATCH = "spoof_trickystore_patch";
     }
 
     /**

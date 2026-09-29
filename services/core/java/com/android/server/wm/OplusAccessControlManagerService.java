@@ -339,9 +339,9 @@ public final class OplusAccessControlManagerService extends IOplusAccessControlM
             final Integer value = currentApps == null ? null : currentApps.get(packageName);
             try {
                 if (enabled && isAccessEnabledValue(value)) {
-                    AxSandboxService.get().addLockedApp(packageName);
+                    IAxSandboxService.get().addLockedApp(packageName);
                 } else {
-                    AxSandboxService.get().removeLockedApp(packageName);
+                    IAxSandboxService.get().removeLockedApp(packageName);
                 }
             } catch (RuntimeException e) {
                 Slog.w(TAG, "Failed syncing Oplus app lock to AxSandbox for " + packageName, e);

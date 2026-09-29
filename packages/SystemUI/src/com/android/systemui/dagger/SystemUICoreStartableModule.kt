@@ -21,7 +21,6 @@ import com.android.systemui.CoreStartable
 import com.android.systemui.LatencyTester
 import com.android.systemui.SliceBroadcastRelayHandler
 import com.android.systemui.accessibility.Magnification
-import com.android.systemui.applocker.AxAppLockerHelper
 import com.android.systemui.ax.AxPlatformServiceImpl
 import com.android.systemui.axdynamicbar.domain.AxDynamicBarChipsRefiner
 import com.android.systemui.axdynamicbar.ui.AxDynamicBarManager
@@ -73,6 +72,8 @@ import dagger.Module
 import dagger.multibindings.ClassKey
 import dagger.multibindings.IntoMap
 import dagger.multibindings.IntoSet
+
+import com.axion.applocker.AxAppLockerHelper
 
 /**
  * DEPRECATED: DO NOT ADD THINGS TO THIS FILE. b/427499553

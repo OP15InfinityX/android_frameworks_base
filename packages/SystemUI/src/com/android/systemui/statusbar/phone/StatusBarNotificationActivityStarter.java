@@ -92,7 +92,7 @@ import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.wmshell.BubblesManager;
 import com.android.wm.shell.shared.bubbles.logging.BubbleLog;
 
-import com.android.systemui.applocker.AxAppLockerHelper;
+import com.axion.applocker.AxAppLockerHelper;
 
 import dagger.Lazy;
 
@@ -809,7 +809,9 @@ public class StatusBarNotificationActivityStarter implements NotificationActivit
 
     @VisibleForTesting
     void launchFullScreenIntent(NotificationEntry entry) {
-        if (entry.shouldSuppressFullScreenIntent()) return;
+        if (entry.shouldSuppressFullScreenIntent()) {
+            return;
+        }
         // Skip if device is in VR mode.
         if (mPresenter.isDeviceInVrMode()) {
             mLogger.logFullScreenIntentSuppressedByVR(entry);

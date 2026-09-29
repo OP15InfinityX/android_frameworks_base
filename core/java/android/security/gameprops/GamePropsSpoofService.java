@@ -19,7 +19,6 @@ package android.security.gameprops;
 import android.app.ActivityManager;
 import android.app.IActivityManager;
 import android.os.Build;
-import android.os.RemoteException;
 import android.util.JsonReader;
 import android.util.Log;
 
@@ -89,15 +88,15 @@ public final class GamePropsSpoofService {
         mEnabled = false;
         mConfigLoaded = false;
 
-        IActivityManager am = ActivityManager.getService();
-        if (am == null) {
+        IActivityManager service = ActivityManager.getService();
+        if (service == null) {
             Log.w(TAG, "ActivityManager not ready, skipping gameprops config load");
             return;
         }
 
         String content;
         try {
-            content = am.getSpoofGamePropsConfig();
+            content = service.getSpoofGamePropsConfig();
         } catch (Throwable e) {
             Log.e(TAG, "Failed to fetch gameprops config from system_server", e);
             return;
@@ -113,7 +112,8 @@ public final class GamePropsSpoofService {
         try {
             parseJson(content);
             mConfigLoaded = true;
-            Log.i(TAG, "Game props config loaded, games=" + mGameConfigs.size() + ", enabled=" + mEnabled);
+            Log.i(TAG, "Game props config loaded, games=" + mGameConfigs.size()
+                    + ", enabled=" + mEnabled);
         } catch (Throwable e) {
             Log.e(TAG, "Failed to parse game props config", e);
         }
@@ -124,7 +124,7 @@ public final class GamePropsSpoofService {
             reader.beginObject();
             while (reader.hasNext()) {
                 String key = reader.nextName();
-
+                
                 if ("enabled".equals(key)) {
                     mEnabled = reader.nextBoolean();
                 } else if ("debug".equals(key)) {
@@ -146,7 +146,7 @@ public final class GamePropsSpoofService {
         while (reader.hasNext()) {
             String packageName = reader.nextName();
             Map<String, String> gameProps = new HashMap<>();
-
+            
             reader.beginObject();
             while (reader.hasNext()) {
                 String propKey = reader.nextName();
@@ -154,7 +154,7 @@ public final class GamePropsSpoofService {
                 gameProps.put(propKey, propValue);
             }
             reader.endObject();
-
+            
             if (!gameProps.isEmpty()) {
                 mGameConfigs.put(packageName, gameProps);
                 if (mDebug) {

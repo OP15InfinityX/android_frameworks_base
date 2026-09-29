@@ -460,9 +460,13 @@ import com.android.internal.annotations.CompositeRWLock;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.SystemServerLock;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.app.HiddenNotificationInfo;
+import com.android.internal.app.IAppLockStateListener;
+import com.android.internal.app.IAppSessionListener;
 import com.android.internal.app.IAppOpsActiveCallback;
 import com.android.internal.app.IAppOpsCallback;
 import com.android.internal.app.IAppOpsService;
+import com.android.internal.app.IHiddenNotificationListener;
 import com.android.internal.app.ProcessMap;
 import com.android.internal.app.SystemUserHomeActivity;
 import com.android.internal.app.procstats.ProcessState;
@@ -496,7 +500,6 @@ import com.android.internal.util.NamedLock;
 import com.android.internal.util.Preconditions;
 import com.android.internal.util.function.pooled.PooledLambda;
 import com.android.server.AlarmManagerInternal;
-import com.android.server.AxExtServiceFactory;
 import com.android.server.BootReceiver;
 import com.android.server.DeviceIdleInternal;
 import com.android.server.DisplayThread;
@@ -540,6 +543,7 @@ import com.android.server.power.stats.BatteryStatsImpl;
 import com.android.server.privatecompute.PccSandboxManagerInternal;
 import com.android.server.privatecompute.PrivateComputeStatsLogUtil;
 import com.android.server.sdksandbox.SdkSandboxManagerLocal;
+import com.android.server.spoof.AxSpoofManagerInternal;
 import com.android.server.stats.pull.StatsPullAtomService;
 import com.android.server.stats.pull.StatsPullAtomServiceInternal;
 import com.android.server.uri.GrantUri;
@@ -554,6 +558,7 @@ import com.android.server.wm.ActivityMetricsLaunchObserver;
 import com.android.server.wm.ActivityServiceConnectionsHolder;
 import com.android.server.wm.ActivityTaskManagerInternal;
 import com.android.server.wm.ActivityTaskManagerService;
+import com.android.server.wm.IAxSandboxService;
 import com.android.server.wm.WindowManagerInternal;
 import com.android.server.wm.WindowManagerService;
 import com.android.server.wm.WindowProcessController;
@@ -3446,38 +3451,6 @@ public class ActivityManagerService extends IActivityManager.Stub
         return mProcessList.getProcessRecordLocked(processName, uid);
     }
 
-    public ProcessRecord getProcessRecord(String str) {
-        ProcessRecord processRecordLocked = null;
-        synchronized (mProcLock) {
-            try {
-                int currentUserId = getCurrentUserId();
-                int packageUid = getPackageManagerInternal().getPackageUid(str, 0, currentUserId);
-                processRecordLocked = getProcessRecordLocked(str, packageUid);
-            } catch (Exception e) {
-            }
-        }
-        return processRecordLocked;
-    }
-
-    public ProcessRecord getProcessRecordByPid(int pid) {
-        ProcessRecord curProc;
-        synchronized (mPidsSelfLocked) {
-            curProc = mPidsSelfLocked.get(pid);
-        }
-        if (curProc == null) {
-            Slog.d("getProcessRecordByPid", "pid: " + pid + " is not exist, return!");
-            return null;
-        }
-        return curProc;
-    }
-
-    public boolean isPackageTopApp(String str) {
-        ProcessRecord gameProc = getProcessRecord(str);
-        return gameProc != null
-            && gameProc.getThread() != null
-            && gameProc.getCurrentSchedulingGroup() == SCHED_GROUP_TOP_APP;
-    }
-
     @GuardedBy(anyOf = {"this", "mProcLock"})
     final ProcessMap<ProcessRecord> getProcessNamesLOSP() {
         return mProcessList.getProcessNamesLOSP();
@@ -6030,10 +6003,6 @@ public class ActivityManagerService extends IActivityManager.Stub
 
             // Start PSI monitoring in LMKD if it was skipped earlier.
             ProcessList.startPsiMonitoringAfterBoot();
-
-            mHandler.postDelayed(() -> {
-                AxExtServiceFactory.onLateSystemReady();
-            }, 5000);
 
             mUserController.onBootComplete(
                     new IIntentReceiver.Stub() {
@@ -9936,8 +9905,6 @@ public class ActivityManagerService extends IActivityManager.Stub
             mComponentAliasResolver.onSystemReady(mConstants.mEnableComponentAlias,
                     mConstants.mComponentAliasOverrides);
             t.traceEnd(); // componentAlias
-            
-            AxExtServiceFactory.systemReady();
 
             t.traceEnd(); // PhaseActivityManagerReady
         }
@@ -10284,7 +10251,7 @@ public class ActivityManagerService extends IActivityManager.Stub
 
         // Exit early if the dropbox isn't configured to accept this report type.
         final String dropboxTag = processClass(process) + "_strictmode";
-        if (dbox == null || !dbox.isTagEnabled(dropboxTag)) return;
+        if (!isDropBoxTagEnabled(dbox, dropboxTag)) return;
 
         final StringBuilder sb = new StringBuilder(1024);
         synchronized (sb) {
@@ -10325,8 +10292,35 @@ public class ActivityManagerService extends IActivityManager.Stub
 
         final String res = sb.toString();
         IoThread.getHandler().post(() -> {
-            dbox.addText(dropboxTag, res);
+            addTextToDropBox(dbox, dropboxTag, res);
         });
+    }
+
+    private boolean isDropBoxTagEnabled(DropBoxManager dbox, String dropboxTag) {
+        return isDropBoxTagEnabled(dbox, dropboxTag, null);
+    }
+
+    private boolean isDropBoxTagEnabled(DropBoxManager dbox, String dropboxTag,
+            String exceptionClassName) {
+        if (dbox == null) {
+            return false;
+        }
+        try {
+            return exceptionClassName != null
+                    ? dbox.isTagEnabled(dropboxTag, exceptionClassName)
+                    : dbox.isTagEnabled(dropboxTag);
+        } catch (RuntimeException e) {
+            Slog.w(TAG, "Unable to query DropBox tag " + dropboxTag, e);
+            return false;
+        }
+    }
+
+    private void addTextToDropBox(DropBoxManager dbox, String dropboxTag, String data) {
+        try {
+            dbox.addText(dropboxTag, data);
+        } catch (RuntimeException e) {
+            Slog.w(TAG, "Unable to write DropBox entry " + dropboxTag, e);
+        }
     }
 
     /**
@@ -10604,9 +10598,17 @@ public class ActivityManagerService extends IActivityManager.Stub
         if (crashInfo != null) {
             // For a subset of errors, we augment the check with the associated exception class
             // name to allow more granular filtering and control.
-            if (!dbox.isTagEnabled(dropboxTag, crashInfo.exceptionClassName)) return;
+            if (!isDropBoxTagEnabled(dbox, dropboxTag, crashInfo.exceptionClassName)) return;
         } else {
-            if (!dbox.isTagEnabled(dropboxTag)) return;
+            if (!isDropBoxTagEnabled(dbox, dropboxTag)) return;
+        }
+
+        if (dropboxTag.equals("system_server_crash") && Binder.getCallingPid() != Process.myPid()) {
+            // processClass(process) above returns "system_server" when process is null, which
+            // leads to some app crashes being reported as system_server crashes
+            Slog.d(TAG, "addErrorToDropBox: skipping spurious system_server_crash entry, "
+                    + "processName " + processName, new Throwable());
+            return;
         }
 
         // Check if we should rate limit and abort early if needed.
@@ -10782,7 +10784,7 @@ public class ActivityManagerService extends IActivityManager.Stub
                     }
                 }
 
-                dbox.addText(dropboxTag, sb.toString());
+                addTextToDropBox(dbox, dropboxTag, sb.toString());
             }
         };
 
@@ -20992,46 +20994,6 @@ public class ActivityManagerService extends IActivityManager.Stub
         return mFreezer;
     }
 
-    @Override
-    public String getSpoofPifConfig() {
-        return AxExtServiceFactory.getSpoofManager().getPifConfig();
-    }
-
-    @Override
-    public String getSpoofPifSpoofPhotos() {
-        return AxExtServiceFactory.getSpoofManager().getPifSpoofPhotos();
-    }
-
-    @Override
-    public String getSpoofPifSpoofNetflix() {
-        return AxExtServiceFactory.getSpoofManager().getPifSpoofNetflix();
-    }
-
-    @Override
-    public String getSpoofPifSpoofSnapchat() {
-        return AxExtServiceFactory.getSpoofManager().getPifSpoofSnapchat();
-    }
-
-    @Override
-    public String getSpoofGamePropsConfig() {
-        return AxExtServiceFactory.getSpoofManager().getGamePropsConfig();
-    }
-
-    @Override
-    public String getSpoofTrickyStoreTarget() {
-        return AxExtServiceFactory.getSpoofManager().getTrickyStoreTarget();
-    }
-
-    @Override
-    public String getSpoofTrickyStoreKeyBox() {
-        return AxExtServiceFactory.getSpoofManager().getTrickyStoreKeyBox();
-    }
-
-    @Override
-    public String getSpoofTrickyStorePatch() {
-        return AxExtServiceFactory.getSpoofManager().getTrickyStorePatch();
-    }
-
     // Set of IntentCreatorToken objects that are currently active.
     private static final Map<IntentCreatorToken.Key, WeakReference<IntentCreatorToken>>
             sIntentCreatorTokenCache = new ConcurrentHashMap<>();
@@ -21296,6 +21258,324 @@ public class ActivityManagerService extends IActivityManager.Stub
             return;
         }
         r.getWindowProcessController().setOptimizationInfo(compilerFilter, compilationReason);
+    }
+
+    private AxSpoofManagerInternal getAxSpoofManager() {
+        return LocalServices.getService(AxSpoofManagerInternal.class);
+    }
+
+    @Override
+    public String getSpoofPifConfig() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getPifConfig() : null;
+    }
+
+    @Override
+    public String getSpoofPifSpoofPhotos() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getPifSpoofPhotos() : null;
+    }
+
+    @Override
+    public String getSpoofPifSpoofNetflix() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getPifSpoofNetflix() : null;
+    }
+
+    @Override
+    public String getSpoofPifSpoofSnapchat() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getPifSpoofSnapchat() : null;
+    }
+
+    @Override
+    public String getSpoofGamePropsConfig() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getGamePropsConfig() : null;
+    }
+
+    @Override
+    public String getSpoofTrickyStoreTarget() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getTrickyStoreTarget() : null;
+    }
+
+    @Override
+    public String getSpoofTrickyStoreKeyBox() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getTrickyStoreKeyBox() : null;
+    }
+
+    @Override
+    public String getSpoofTrickyStorePatch() {
+        final AxSpoofManagerInternal service = getAxSpoofManager();
+        return service != null ? service.getTrickyStorePatch() : null;
+    }
+
+    private IAxSandboxService getAxSandboxService() {
+        return LocalServices.getService(IAxSandboxService.class);
+    }
+
+    @Override
+    public boolean isSandboxAppLocked(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null && service.isAppLocked(packageName);
+    }
+
+    @Override
+    public int getSandboxAppLockState(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getAppLockState(packageName) : 0;
+    }
+
+    @Override
+    public int getSandboxAppLockStateForUser(String packageName, int userId) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getAppLockStateForUser(packageName, userId) : 0;
+    }
+
+    @Override
+    public boolean isSandboxPackageHidden(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null && service.isPackageHidden(packageName);
+    }
+
+    @Override
+    public boolean isSandboxPackageHiddenFromLauncher(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null && service.isPackageHiddenFromLauncher(packageName);
+    }
+
+    @Override
+    public void addSandboxLockedApp(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.addLockedApp(packageName);
+        }
+    }
+
+    @Override
+    public void removeSandboxLockedApp(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.removeLockedApp(packageName);
+        }
+    }
+
+    @Override
+    public void setSandboxPackageHidden(String packageName, boolean hidden) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.setPackageHidden(packageName, hidden);
+        }
+    }
+
+    @Override
+    public void setSandboxPackageHiddenFromLauncher(String packageName, boolean hidden) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.setPackageHiddenFromLauncher(packageName, hidden);
+        }
+    }
+
+    @Override
+    public List<String> getSandboxLockedPackages() {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getLockedPackages() : Collections.emptyList();
+    }
+
+    @Override
+    public List<String> getSandboxHiddenPackages() {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getHiddenPackages() : Collections.emptyList();
+    }
+
+    @Override
+    public List<String> getSandboxHiddenFromLauncherPackages() {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getHiddenFromLauncherPackages() : Collections.emptyList();
+    }
+
+    @Override
+    public List<String> getSandboxLockablePackages() {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getLockablePackages() : Collections.emptyList();
+    }
+
+    @Override
+    public boolean isSandboxPackageLockable(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null && service.isPackageLockable(packageName);
+    }
+
+    @Override
+    public void unlockSandboxApp(String packageName, int userId) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.unlockApp(packageName, userId);
+        }
+    }
+
+    @Override
+    public void promptSandboxUnlock(String packageName, int userId) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.promptUnlock(packageName, userId);
+        }
+    }
+
+    @Override
+    public void registerSandboxAppLockStateListener(IAppLockStateListener listener) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.registerAppLockStateListener(listener);
+        }
+    }
+
+    @Override
+    public void unregisterSandboxAppLockStateListener(IAppLockStateListener listener) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.unregisterAppLockStateListener(listener);
+        }
+    }
+
+    @Override
+    public void registerSandboxAppSessionListener(IAppSessionListener listener) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.registerAppSessionListener(listener);
+        }
+    }
+
+    @Override
+    public void unregisterSandboxAppSessionListener(IAppSessionListener listener) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.unregisterAppSessionListener(listener);
+        }
+    }
+
+    @Override
+    public void registerSandboxHiddenNotificationListener(IHiddenNotificationListener listener) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.registerHiddenNotificationListener(listener);
+        }
+    }
+
+    @Override
+    public void unregisterSandboxHiddenNotificationListener(IHiddenNotificationListener listener) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.unregisterHiddenNotificationListener(listener);
+        }
+    }
+
+    @Override
+    public List<HiddenNotificationInfo> getSandboxHiddenNotifications() {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getHiddenNotifications() : Collections.emptyList();
+    }
+
+    @Override
+    public void onSandboxHiddenNotificationPosted(HiddenNotificationInfo info) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.onHiddenNotificationPosted(info);
+        }
+    }
+
+    @Override
+    public void onSandboxHiddenNotificationRemoved(String key) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.onHiddenNotificationRemoved(key);
+        }
+    }
+
+    @Override
+    public boolean isSandboxPackageSandboxed(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null && service.isPackageSandboxed(packageName);
+    }
+
+    @Override
+    public void addSandboxPackage(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.addSandboxedPackage(packageName);
+        }
+    }
+
+    @Override
+    public void removeSandboxPackage(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.removeSandboxedPackage(packageName);
+        }
+    }
+
+    @Override
+    public List<String> getSandboxPackages() {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getSandboxedPackages() : Collections.emptyList();
+    }
+
+    @Override
+    public void setSandboxRestrictedGids(String packageName, int[] gids) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.setRestrictedGids(packageName, gids);
+        }
+    }
+
+    @Override
+    public int[] getSandboxRestrictedGids(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getRestrictedGids(packageName) : null;
+    }
+
+    @Override
+    public boolean isSandboxDataIsolationEnabled(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null && service.isSandboxDataIsolationEnabled(packageName);
+    }
+
+    @Override
+    public void setSandboxDataIsolationEnabled(String packageName, boolean enabled) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.setSandboxDataIsolationEnabled(packageName, enabled);
+        }
+    }
+
+    @Override
+    public boolean isSandboxSpoofSettingEnabled(String packageName, String settingKey) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null && service.isSpoofSettingEnabled(packageName, settingKey);
+    }
+
+    @Override
+    public void setSandboxSpoofSettingEnabled(String packageName, String settingKey,
+            boolean enabled) {
+        final IAxSandboxService service = getAxSandboxService();
+        if (service != null) {
+            service.setSpoofSettingEnabled(packageName, settingKey, enabled);
+        }
+    }
+
+    @Override
+    public List<String> getSandboxEnabledSpoofSettings(String packageName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null
+                ? service.getEnabledSpoofSettings(packageName) : Collections.emptyList();
+    }
+
+    @Override
+    public String getSandboxSpoofedSetting(String callingPackage, String settingName) {
+        final IAxSandboxService service = getAxSandboxService();
+        return service != null ? service.getSpoofedSetting(callingPackage, settingName) : null;
     }
 
     // uid indexed collection of lists of ANR warning callback.

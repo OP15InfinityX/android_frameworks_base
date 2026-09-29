@@ -122,7 +122,7 @@ import com.android.systemui.util.ScrimUtils;
 import com.android.systemui.util.kotlin.JavaAdapter;
 import com.android.systemui.utils.windowmanager.WindowManagerProvider;
 
-import com.android.systemui.applocker.AxAppLockerHelper;
+import com.axion.applocker.AxAppLockerHelper;
 import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
 import android.service.notification.StatusBarNotification;

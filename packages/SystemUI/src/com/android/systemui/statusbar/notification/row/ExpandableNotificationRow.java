@@ -149,7 +149,7 @@ import com.android.systemui.util.DumpUtilsKt;
 import com.android.systemui.util.ListenerSet;
 import com.android.wm.shell.shared.animation.PhysicsAnimator;
 
-import com.android.systemui.applocker.AxAppLockerHelper;
+import com.axion.applocker.AxAppLockerHelper;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -3473,7 +3473,7 @@ public class ExpandableNotificationRow extends ActivatableNotificationView
                 mPublicLayout.setVisibility(mShowingPublic ? View.VISIBLE : View.INVISIBLE);
                 updateChildrenVisibility();
             }
-            notifyHeightChanged(true, "ENR.updateAppLockedShowingState");
+            notifyHeightChanged(/* needsAnimation= */ true, "ENR.updateAppLockedShowingState");
         }
     }
 

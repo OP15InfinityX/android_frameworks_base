@@ -96,8 +96,7 @@ class PulseViewController @Inject constructor(
         pulseRunning = isMediaPlaying 
                 && !bouncerShowingOrKeyguardDismissing
                 && isCollapsed
-                && !isScreenOff
-                && ((keyguardShowing && !isDozing)
+                && ((keyguardShowing && !isDozing && !isScreenOff)
                 || (isDozing && ambientEnabled))
     }
 

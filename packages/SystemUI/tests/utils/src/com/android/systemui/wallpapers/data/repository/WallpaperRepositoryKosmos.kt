@@ -36,6 +36,7 @@ var Kosmos.wallpaperRepository: WallpaperRepository by Fixture {
         userRepository = userRepository,
         wallpaperManager = wallpaperManager,
         secureSettings = fakeSettings,
+        systemSettings = fakeSettings,
         configurationInteractor = configurationInteractor,
     )
 }

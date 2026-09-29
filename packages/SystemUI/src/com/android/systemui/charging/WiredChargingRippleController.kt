@@ -57,7 +57,7 @@ private const val BASE_DEBOUNCE_TIME = 2000
  * color of the current theme.
  */
 @SysUISingleton
-open class WiredChargingRippleController
+class WiredChargingRippleController
 @Inject
 constructor(
     commandRegistry: CommandRegistry,
@@ -185,11 +185,6 @@ constructor(
         }
     }
 
-    @VisibleForTesting
-    open fun makeContainer(): FrameLayout {
-        return FrameLayout(context)
-    }
-
     private fun startAospRipple() {
         if (rippleView.rippleInProgress() || rippleView.parent != null) {
             // Skip if ripple is still playing, or not playing but already added the parent
@@ -199,7 +194,7 @@ constructor(
         }
         windowLayoutParams.packageName = context.opPackageName
 
-        val container = makeContainer()
+        val container = FrameLayout(context)
         container.addView(rippleView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
@@ -219,19 +214,17 @@ constructor(
         ).apply { gravity = Gravity.CENTER })
 
         container.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-                override fun onViewDetachedFromWindow(view: View) {}
+            override fun onViewDetachedFromWindow(view: View) {}
 
-                override fun onViewAttachedToWindow(view: View) {
-                    layoutRipple()
+            override fun onViewAttachedToWindow(view: View) {
+                layoutRipple()
+                var cleanupInvoked = false
                 rippleView.startRipple(Runnable {
-                    container.removeView(rippleView)
-                    if (container.isAttachedToWindow) {
-                        try {
-                            windowManager.removeView(container)
-                        } catch (e: IllegalArgumentException) {
-                            android.util.Log.e("WiredChargingRippleController", "Failed to remove container from window manager", e)
-                        }
+                    if (cleanupInvoked) {
+                        return@Runnable
                     }
+                    cleanupInvoked = true
+                    removeRippleContainer(container)
                 })
                 val fadeIn = ObjectAnimator.ofFloat(percentText, "alpha", 0f, 1f).apply {
                     duration = 300
@@ -274,14 +267,13 @@ constructor(
             override fun onViewDetachedFromWindow(view: View) {}
 
             override fun onViewAttachedToWindow(view: View) {
+                var cleanupInvoked = false
                 axRippleView.startRipple(Runnable {
-                    if (axRippleView.isAttachedToWindow) {
-                        try {
-                            windowManager.removeView(axRippleView)
-                        } catch (e: IllegalArgumentException) {
-                            android.util.Log.e("WiredChargingRippleController", "Failed to remove axRippleView from window manager", e)
-                        }
+                    if (cleanupInvoked) {
+                        return@Runnable
                     }
+                    cleanupInvoked = true
+                    removeWindowViewIfAttached(axRippleView)
                 })
                 axRippleView.removeOnAttachStateChangeListener(this)
             }
@@ -304,14 +296,13 @@ constructor(
             override fun onViewDetachedFromWindow(view: View) {}
 
             override fun onViewAttachedToWindow(view: View) {
+                var cleanupInvoked = false
                 axChargingCircleView.startAnimation(Runnable {
-                    if (axChargingCircleView.isAttachedToWindow) {
-                        try {
-                            windowManager.removeView(axChargingCircleView)
-                        } catch (e: IllegalArgumentException) {
-                            android.util.Log.e("WiredChargingRippleController", "Failed to remove axChargingCircleView from window manager", e)
-                        }
+                    if (cleanupInvoked) {
+                        return@Runnable
                     }
+                    cleanupInvoked = true
+                    removeWindowViewIfAttached(axChargingCircleView)
                 })
                 axChargingCircleView.removeOnAttachStateChangeListener(this)
                 }
@@ -323,6 +314,19 @@ constructor(
 
     companion object {
         private const val CHARGING_ANIM_MODE_CIRCLE = 1
+    }
+
+    private fun removeRippleContainer(container: FrameLayout) {
+        if (rippleView.parent === container) {
+            container.removeView(rippleView)
+        }
+        removeWindowViewIfAttached(container)
+    }
+
+    private fun removeWindowViewIfAttached(view: View) {
+        if (view.isAttachedToWindow) {
+            windowManager.removeView(view)
+        }
     }
 
     private fun layoutRipple() {

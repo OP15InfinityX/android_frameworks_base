@@ -173,6 +173,7 @@ public class DozeParameters implements
         tunerService.addTunable(
                 this,
                 Settings.Secure.DOZE_ALWAYS_ON,
+                Settings.Secure.DOZE_ON_CHARGE,
                 Settings.Secure.DOZE_PEEK,
                 Settings.Secure.ACCESSIBILITY_DISPLAY_INVERSION_ENABLED);
         configurationController.addCallback(this);
@@ -192,6 +193,12 @@ public class DozeParameters implements
         batteryController.addCallback(new BatteryStateChangeCallback() {
                 @Override
                 public void onPowerSaveChanged(boolean isPowerSave) {
+                    dispatchAlwaysOnEvent();
+                }
+
+                @Override
+                public void onBatteryLevelChanged(int level, boolean pluggedIn, boolean charging) {
+                    updateControlScreenOff();
                     dispatchAlwaysOnEvent();
                 }
             });
@@ -499,6 +506,7 @@ public class DozeParameters implements
     @Override
     public void onTuningChanged(String key, String newValue) {
         if (key.equals(Settings.Secure.DOZE_ALWAYS_ON)
+                || key.equals(Settings.Secure.DOZE_ON_CHARGE)
                 || key.equals(Settings.Secure.DOZE_PEEK)) {
             updateControlScreenOff();
         }

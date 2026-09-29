@@ -311,6 +311,18 @@ public class ScrimView extends View {
                 mViewAlpha = alpha;
 
                 mDrawable.setAlpha((int) (255 * alpha));
+                if (mScrimName != null && mScrimName.equals("notifications_scrim")) {
+                    com.android.systemui.util.ScrimUtils scrimUtils = com.android.systemui.util.ScrimUtils.get(getContext());
+                    float scrimBehindAlphaKeyguard = scrimUtils.getScrimBehindAlphaKeyguard();
+                    float notifAlpha = alpha;
+                    if (notifAlpha < scrimBehindAlphaKeyguard) {
+                        notifAlpha = 0;
+                    }
+                    float subjectAlpha = (notifAlpha > scrimBehindAlphaKeyguard)
+                        ? (1f - notifAlpha) / (1f - scrimBehindAlphaKeyguard)
+                        : 1f;
+                    scrimUtils.setViewAlpha(subjectAlpha);
+                }
             }
         });
     }

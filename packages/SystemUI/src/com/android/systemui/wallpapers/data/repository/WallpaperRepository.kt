@@ -43,6 +43,7 @@ import com.android.systemui.user.data.model.SelectionStatus
 import com.android.systemui.user.data.repository.UserRepository
 import com.android.systemui.util.settings.SecureSettings
 import com.android.systemui.util.settings.SettingsProxyExt.observerFlow
+import com.android.systemui.util.settings.SystemSettings
 import com.android.systemui.utils.coroutines.flow.mapLatestConflated
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
@@ -57,6 +58,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
@@ -97,6 +99,7 @@ constructor(
     private val wallpaperManager: WallpaperManager,
     private val context: Context,
     private val secureSettings: SecureSettings,
+    private val systemSettings: SystemSettings,
     @ShadeDisplayAware configurationInteractor: ConfigurationInteractor,
 ) : WallpaperRepository {
     private val wallpaperChanged: Flow<Unit> =
@@ -120,18 +123,28 @@ constructor(
     override val lockscreenWallpaperInfo: StateFlow<WallpaperInfo?> = getWallpaperInfo(FLAG_LOCK)
     override val wallpaperSupportsAmbientMode: Flow<Boolean> =
         combine(
-                secureSettings
-                    .observerFlow(
-                        UserHandle.USER_ALL,
-                        Settings.Secure.DOZE_ALWAYS_ON_WALLPAPER_ENABLED,
-                    )
-                    .onStart { emit(Unit) },
+                merge(
+                    secureSettings
+                        .observerFlow(
+                            UserHandle.USER_ALL,
+                            Settings.Secure.DOZE_ALWAYS_ON_WALLPAPER_ENABLED,
+                        ),
+                    systemSettings
+                        .observerFlow(
+                            UserHandle.USER_ALL,
+                            Settings.System.AMBIENT_MEDIA_ART_ENABLED,
+                        ),
+                )
+                .onStart { emit(Unit) },
                 configurationInteractor.onAnyConfigurationChange,
                 ::Pair,
             )
             .map {
-                val wallpaperEnabled =
+                val ambientMediaArtEnabled =
+                    systemSettings.getInt(Settings.System.AMBIENT_MEDIA_ART_ENABLED, 0) == 1
+                val dozeWallpaperEnabled =
                     secureSettings.getInt(Settings.Secure.DOZE_ALWAYS_ON_WALLPAPER_ENABLED, 0) == 1
+                val wallpaperEnabled = ambientMediaArtEnabled || dozeWallpaperEnabled
                 wallpaperEnabled && configEnabled()
             }
             .flowOn(bgDispatcher)

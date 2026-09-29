@@ -99,6 +99,7 @@ constructor(
         val scope = rememberCoroutineScope()
 
         val classicStyle = rememberQSPanelStyle()
+        val classicRowSpacing = if (classicStyle) rememberClassicTileRowSpacing() else dimensionResource(R.dimen.qs_tile_margin_vertical)
 
         val bounceables =
             remember(sizedTiles) { List(sizedTiles.size) { BounceableTileViewModel() } }
@@ -110,7 +111,7 @@ constructor(
             VerticalSpannedGrid(
                 columns = columns,
                 columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal),
-                rowSpacing = dimensionResource(R.dimen.qs_tile_margin_vertical),
+                rowSpacing = classicRowSpacing,
                 spans = spans,
                 keys = { sizedTiles[it].tile.spec },
                 modifier = modifier,

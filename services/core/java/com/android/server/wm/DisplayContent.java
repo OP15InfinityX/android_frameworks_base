@@ -272,6 +272,7 @@ import com.android.internal.protolog.ProtoLog;
 import com.android.internal.util.ToBooleanFunction;
 import com.android.internal.util.function.pooled.PooledLambda;
 import com.android.internal.util.function.pooled.PooledPredicate;
+import com.android.server.LocalServices;
 import com.android.server.input.InputManagerService;
 import com.android.server.inputmethod.InputMethodManagerInternal;
 import com.android.server.policy.WindowManagerPolicy;
@@ -1228,7 +1229,11 @@ class DisplayContent extends RootDisplayArea implements WindowManagerPolicy.Disp
 
         final ActivityRecord activity = w.mActivityRecord;
         if (activity != null && activity.isVisibleRequested()) {
-            activity.updateLetterboxSurfaceIfNeeded(w);
+            final int type = w.mAttrs.type;
+            if (!w.mAnimatingExit
+                    && (type == TYPE_BASE_APPLICATION || type == TYPE_APPLICATION_STARTING)) {
+                activity.updateLetterboxSurfaceIfNeeded(w);
+            }
             final boolean updateAllDrawn = activity.updateDrawnWindowStates(w);
             if (updateAllDrawn && !mTmpUpdateAllDrawn.contains(activity)) {
                 mTmpUpdateAllDrawn.add(activity);
@@ -4532,10 +4537,16 @@ class DisplayContent extends RootDisplayArea implements WindowManagerPolicy.Disp
         }
 
         if (mDisplayId == DEFAULT_DISPLAY && newFocus != null) {
-            AxSandboxService.get().onAppFocusChanged(newFocus, newTask);
-            GameSpaceService.get().onAppFocusChanged(newFocus, newTask);
+            IAxSandboxService.get().onAppFocusChanged(newFocus, newTask);
         }
 
+        if (newFocus != null && isDefaultDisplay) {
+            final GameSpaceService gameSpaceService =
+                    LocalServices.getService(GameSpaceService.class);
+            if (gameSpaceService != null) {
+                gameSpaceService.onAppFocusChanged(newFocus, newTask);
+            }
+        }
         getInputMonitor().setFocusedAppLw(newFocus);
         return true;
     }

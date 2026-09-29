@@ -208,13 +208,17 @@ fun ContentScope.Tile(
             }
 
         val classicStyle = rememberQSPanelStyle()
+        val classicIconSize = rememberClassicTileIconSize()
         val iconShapeKey = rememberQSTileIconShapeKey()
         val labelHide = classicStyle && rememberQSTileLabelHide()
-        val tileHeight = if (!classicStyle || labelHide) {
-            CommonTileDefaults.TileHeight
-        } else {
-            CommonTileDefaults.TileHeight + 32.dp
-        }
+        val tileHeight by animateDpAsState(
+            targetValue = when {
+                classicStyle && !labelHide -> classicIconSize + 16.dp
+                classicStyle -> classicIconSize
+                else -> CommonTileDefaults.TileHeight
+            },
+            label = "tileHeight",
+        )
 
         val shapeMode = rememberTileShapeMode()
         val animationStyle = rememberQSTileAnimationStyle()
@@ -256,8 +260,10 @@ fun ContentScope.Tile(
         }
 
         if (tile.spec.spec == "sound" && !iconOnly) {
-            QSTileRingerSlider()
-            return@trace
+            if (!classicStyle) {
+                QSTileRingerSlider()
+                return@trace
+            }
         }
         
         val outerShape = if (wantCircle && !classicStyle) RoundedCornerShape(0.dp) else tileShape
@@ -1231,4 +1237,58 @@ object DualTargetTileStyleProvider {
     fun isDualToneStyle(context: android.content.Context): Boolean {
         return getStyle(context) == DualTargetTileStyle.DUAL
     }
+}
+
+@Composable
+internal fun rememberClassicTileIconSize(): Dp {
+    val context = LocalContext.current.applicationContext
+    val state = remember { mutableStateOf(68) }
+    DisposableEffect(context) {
+        val contentResolver = context.contentResolver
+        val observer = object : ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                state.value = Settings.System.getIntForUser(
+                    contentResolver, Settings.System.QS_CLASSIC_TILE_ICON_SIZE, 68,
+                    UserHandle.USER_CURRENT
+                )
+            }
+        }
+        contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.QS_CLASSIC_TILE_ICON_SIZE),
+            false, observer, UserHandle.USER_ALL
+        )
+        state.value = Settings.System.getIntForUser(
+            contentResolver, Settings.System.QS_CLASSIC_TILE_ICON_SIZE, 68,
+            UserHandle.USER_CURRENT
+        )
+        onDispose { contentResolver.unregisterContentObserver(observer) }
+    }
+    return state.value.dp
+}
+
+@Composable
+internal fun rememberClassicTileRowSpacing(): Dp {
+    val context = LocalContext.current.applicationContext
+    val state = remember { mutableStateOf(8) }
+    DisposableEffect(context) {
+        val contentResolver = context.contentResolver
+        val observer = object : ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                state.value = Settings.System.getIntForUser(
+                    contentResolver, Settings.System.QS_CLASSIC_TILE_ROW_SPACING, 8,
+                    UserHandle.USER_CURRENT
+                )
+            }
+        }
+        contentResolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.QS_CLASSIC_TILE_ROW_SPACING),
+            false, observer, UserHandle.USER_ALL
+        )
+        state.value = Settings.System.getIntForUser(
+            contentResolver, Settings.System.QS_CLASSIC_TILE_ROW_SPACING, 8,
+            UserHandle.USER_CURRENT
+        )
+        onDispose { contentResolver.unregisterContentObserver(observer) }
+    }
+    return state.value.dp
 }

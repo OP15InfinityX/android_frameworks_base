@@ -18,11 +18,6 @@ package com.android.systemui.statusbar.chips.screenrecord.ui.viewmodel
 
 import android.app.ActivityManager
 import android.content.Context
-import android.database.ContentObserver
-import android.os.Handler
-import android.os.Looper
-import android.os.UserHandle
-import android.provider.Settings
 import androidx.annotation.DrawableRes
 import com.android.internal.jank.Cuj
 import com.android.systemui.animation.DialogCuj
@@ -54,17 +49,12 @@ import com.android.systemui.statusbar.chips.ui.viewmodel.ChipTransitionHelper
 import com.android.systemui.statusbar.chips.ui.viewmodel.OngoingActivityChipViewModel
 import com.android.systemui.statusbar.chips.ui.viewmodel.OngoingActivityChipViewModel.Companion.createDialogLaunchOnClickCallback
 import com.android.systemui.statusbar.chips.uievents.StatusBarChipsUiEventLogger
-import com.android.systemui.statusbar.featurepods.popups.shared.DynamicIslandFeatureSettings.SCREEN_RECORDING
-import com.android.systemui.statusbar.featurepods.popups.shared.DynamicIslandFeatureSettings.observeDynamicIslandFeatureEnabled
 import com.android.systemui.util.kotlin.pairwise
 import com.android.systemui.util.time.SystemClock
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -73,7 +63,6 @@ import kotlinx.coroutines.flow.stateIn
 class ScreenRecordChipViewModel
 @Inject
 constructor(
-    @Application private val context: Context,
     @Application private val scope: CoroutineScope,
     private val interactor: ScreenRecordChipInteractor,
     private val shareToAppChipViewModel: ShareToAppChipViewModel,
@@ -87,39 +76,11 @@ constructor(
     private val screenCaptureRecordFeaturesInteractor: ScreenCaptureRecordFeaturesInteractor,
 ) : OngoingActivityChipViewModel {
     private val instanceId = uiEventLogger.createNewInstanceId()
-    private val isDynamicIslandEnabled =
-        callbackFlow<Boolean> {
-                val observer =
-                    object : ContentObserver(Handler(Looper.getMainLooper())) {
-                        override fun onChange(selfChange: Boolean) {
-                            trySend(readDynamicIslandEnabled())
-                        }
-                    }
-
-                context.contentResolver.registerContentObserver(
-                    Settings.System.getUriFor(
-                        Settings.System.STATUS_BAR_SHOW_DYNAMIC_ISLAND
-                    ),
-                    false,
-                    observer,
-                    UserHandle.USER_ALL,
-                )
-                trySend(readDynamicIslandEnabled())
-                awaitClose { context.contentResolver.unregisterContentObserver(observer) }
-            }
-            .stateIn(scope, SharingStarted.Lazily, readDynamicIslandEnabled())
 
     /** A direct mapping from [ScreenRecordChipModel] to [OngoingActivityChipModel]. */
     private val simpleChip: StateFlow<OngoingActivityChipModel> =
-        combine(
-            interactor.screenRecordState,
-            isDynamicIslandEnabled,
-            observeDynamicIslandFeatureEnabled(context, SCREEN_RECORDING),
-        ) { state, dynamicIslandEnabled, screenRecordingEnabled ->
-                val showInIsland = dynamicIslandEnabled && screenRecordingEnabled
-                if (showInIsland) {
-                    return@combine OngoingActivityChipModel.Inactive()
-                }
+        interactor.screenRecordState
+            .map { state ->
                 when (state) {
                     is ScreenRecordChipModel.DoingNothing -> OngoingActivityChipModel.Inactive()
                     is ScreenRecordChipModel.Starting -> state.toOngoingActivityChipModel()
@@ -252,15 +213,6 @@ constructor(
                 ),
             instanceId = instanceId,
         )
-    }
-
-    private fun readDynamicIslandEnabled(): Boolean {
-        return Settings.System.getIntForUser(
-            context.contentResolver,
-            Settings.System.STATUS_BAR_SHOW_DYNAMIC_ISLAND,
-            0,
-            UserHandle.USER_CURRENT,
-        ) != 0
     }
 
     companion object {

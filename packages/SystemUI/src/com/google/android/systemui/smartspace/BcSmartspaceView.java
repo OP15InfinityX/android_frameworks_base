@@ -237,7 +237,6 @@ public class BcSmartspaceView extends FrameLayout
     }
 
     public boolean handleTouchOverride(MotionEvent event, Predicate<MotionEvent> touchHandler) {
-        boolean onTouchEvent = touchHandler.test(event);
         int action = event.getAction();
         if (action == 0) {
             mInitialTouchX = event.getX();
@@ -260,6 +259,7 @@ public class BcSmartspaceView extends FrameLayout
                     > mTouchSlop) {
                 cancelScheduledLongPress();
             }
+        } else if (action == 3) {
             cancelScheduledLongPress();
         }
 
@@ -268,6 +268,7 @@ public class BcSmartspaceView extends FrameLayout
             return true;
         }
 
+        boolean onTouchEvent = touchHandler.test(event);
         if (onTouchEvent) {
             cancelScheduledLongPress();
             return true;
@@ -589,7 +590,6 @@ public class BcSmartspaceView extends FrameLayout
         setPivotY(desiredHeight / 2.0f);
     }
 
-    // ???
     public final void onSmartspaceTargetsUpdated(
             List<? extends Parcelable> targets, Runnable runnable) {
         List<SmartspaceTarget> smartspaceTargets =
@@ -907,15 +907,6 @@ public class BcSmartspaceView extends FrameLayout
         if (mPagerDots != null) {
             mPagerDots.setPageOffset(offset, position);
         }
-    }
-
-    // DOES NOT EXIST ???
-    public final void setSelectedPage(int i) {
-        mViewPager2.post(
-                () -> {
-                    mViewPager2.setCurrentItem(i, false);
-                });
-        setSelectedDot(0.0f, i);
     }
 
     @Override

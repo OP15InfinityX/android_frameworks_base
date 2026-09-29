@@ -2269,7 +2269,10 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         if (task != null && !task.fillsParent()) {
             return false;
         }
-        return isOpaqueDrawn() && fillsDisplay();
+        if (!fillsDisplay()) {
+            return false;
+        }
+        return isOpaqueDrawn();
     }
 
     boolean fillsDisplay() {
@@ -2482,7 +2485,12 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
                 // usually unnoticeable (e.g. covered by rotation animation) and the animation
                 // bounds could be inconsistent, such as depending on when the window applies
                 // its draw transaction with new rotation.
-                final boolean allowExitAnimation = !displayContent.inTransition()
+                final boolean allowExitAnimation =
+                        !(startingWindow
+                                && mActivityRecord != null
+                                && !mActivityRecord.isVisibleRequested()
+                                && mTransitionController.isTransitionOnDisplay(displayContent))
+                        && !displayContent.inTransition()
                         // There will be a new window so the exit animation may not be visible or
                         // look weird if its orientation is changed.
                         && !inRelaunchingActivity();
@@ -5495,6 +5503,14 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
             // Since this relies on mWindowFrames, changes made while layout is deferred are
             // likely to be invalid. Similarly, if it's goneForLayout, mWindowFrames may not be
             // up-to-date and thus can't be relied on.
+            return;
+        }
+        if (!mSurfacePlacementNeeded && !mIsChildWindow && mXOffset == 0 && mYOffset == 0
+                && mWallpaperScale == 1f && mSurfaceTranslationY == 0
+                && mWindowFrames.mRelFrame.top == mWindowFrames.mLastRelFrame.top
+                && mWindowFrames.mRelFrame.left == mWindowFrames.mLastRelFrame.left
+                && mLastSurfaceInsets.equals(mAttrs.surfaceInsets)
+                && mLastSurfacePosition.equals(mSurfacePosition)) {
             return;
         }
 

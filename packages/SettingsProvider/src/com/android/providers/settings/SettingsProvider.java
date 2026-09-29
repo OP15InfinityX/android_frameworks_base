@@ -651,7 +651,7 @@ public class SettingsProvider extends ContentProvider {
                 || callingPackage.startsWith("com.google.android.")) {
             return null;
         }
-        
+
         String settings = null;
         try {
             AxSandboxManager sandboxManager =
@@ -660,7 +660,7 @@ public class SettingsProvider extends ContentProvider {
                 settings = sandboxManager.getSpoofedSetting(callingPackage, name);
             }
         } catch (Exception e) {}
-        
+
         return settings;
     }
 

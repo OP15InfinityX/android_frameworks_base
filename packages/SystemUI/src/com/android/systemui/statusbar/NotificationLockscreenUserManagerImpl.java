@@ -100,7 +100,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.inject.Inject;
-import com.android.systemui.applocker.AxAppLockerHelper;
+import com.axion.applocker.AxAppLockerHelper;
 
 /**
  * Handles keeping track of the current user, profiles, and various things related to hiding

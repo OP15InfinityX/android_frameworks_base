@@ -65,7 +65,7 @@ import com.android.systemui.qs.external.TileLifecycleManager.TileChangeListener;
 import com.android.systemui.qs.logging.QSLogger;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.settings.DisplayTracker;
-import com.android.systemui.applocker.AxAppLockerHelper;
+import com.axion.applocker.AxAppLockerHelper;
 
 import dagger.Lazy;
 import dagger.assisted.Assisted;

@@ -67,7 +67,9 @@ constructor(
                         } else {
                             axDynamicBarInteractor.uiState
                                 .map { uiState ->
-                                    uiState.events.firstOrNull { it is IslandEvent.Call } as? IslandEvent.Call
+                                    uiState.events.firstOrNull {
+                                        it is IslandEvent.Call && it.callType != "Phone:incoming"
+                                    } as? IslandEvent.Call
                                 }
                                 .distinctUntilChanged()
                                 .flatMapLatest { event ->

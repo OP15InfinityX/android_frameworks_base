@@ -289,6 +289,7 @@ import com.android.server.smartspace.SmartspaceManagerService;
 import com.android.server.soundtrigger.SoundTriggerService;
 import com.android.server.soundtrigger_middleware.SoundTriggerMiddlewareService;
 import com.android.server.speech.SpeechRecognitionManagerService;
+import com.android.server.spoof.AxSpoofManagerService;
 import com.android.server.stats.binder.BinderStatsConsumerService;
 import com.android.server.stats.bootstrap.StatsBootstrapAtomService;
 import com.android.server.stats.pull.StatsPullAtomService;
@@ -328,6 +329,8 @@ import com.android.server.wallpapereffectsgeneration.WallpaperEffectsGenerationM
 import com.android.server.wearable.WearableSensingManagerService;
 import com.android.server.webkit.WebViewUpdateService;
 import com.android.server.wm.ActivityTaskManagerService;
+import com.android.server.wm.AxSandboxService;
+import com.android.server.wm.GameSpaceService;
 import com.android.server.wm.WindowManagerGlobalLock;
 import com.android.server.wm.WindowManagerService;
 
@@ -1020,8 +1023,6 @@ public final class SystemServer implements Dumpable {
 
             LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
 
-            AxExtServiceFactory.init(mSystemContext);
-
             // Lazily load the pre-installed system font map in SystemServer only if we're not doing
             // the optimized font loading in the FontManagerService.
             if (!com.android.text.flags.Flags.useOptimizedBoottimeFontLoading()
@@ -1313,7 +1314,6 @@ public final class SystemServer implements Dumpable {
         mActivityManagerService.setSystemServiceManager(mSystemServiceManager);
         mActivityManagerService.setInstaller(installer);
         mWindowManagerGlobalLock = atm.getGlobalLock();
-        AxExtServiceFactory.injectActivityManagerService(mActivityManagerService);
         t.traceEnd();
 
         // Data loader manager service needs to be started before package manager
@@ -1337,6 +1337,10 @@ public final class SystemServer implements Dumpable {
 
         t.traceBegin("StartThermalManager");
         mSystemServiceManager.startService(ThermalManagerService.class);
+        t.traceEnd();
+
+        t.traceBegin("StartAxSandboxService");
+        mSystemServiceManager.startService(new AxSandboxService(mSystemContext, atm));
         t.traceEnd();
 
         // Now that the power manager has been started, let the activity manager
@@ -1415,8 +1419,6 @@ public final class SystemServer implements Dumpable {
                     SystemClock.elapsedRealtime());
         }
 
-        AxExtServiceFactory.injectPackageManagerservice(mPackageManagerService);
-
         if (Build.IS_ARC) {
             t.traceBegin("StartArcSystemHealthService");
             mSystemServiceManager.startService(ARC_SYSTEM_HEALTH_SERVICE);
@@ -1458,6 +1460,10 @@ public final class SystemServer implements Dumpable {
 
         t.traceBegin("StartThemeEngineManagerService");
         mSystemServiceManager.startService(ThemeEngineManagerService.class);
+        t.traceEnd();
+
+        t.traceBegin("StartAxSpoofManagerService");
+        mSystemServiceManager.startService(AxSpoofManagerService.class);
         t.traceEnd();
 
         t.traceBegin("InitVBMetaDigest");
@@ -1787,7 +1793,6 @@ public final class SystemServer implements Dumpable {
             mSystemServiceManager.startBootPhase(t, SystemService.PHASE_WAIT_FOR_SENSOR_SERVICE);
             wm = WindowManagerService.main(context, inputManager, !mFirstBoot,
                     new PhoneWindowManager(), mActivityManagerService.mActivityTaskManager);
-            AxExtServiceFactory.injectWindowManagerService(wm);
             ServiceManager.addService(Context.WINDOW_SERVICE, wm, /* allowIsolated= */ false,
                     DUMP_FLAG_PRIORITY_CRITICAL | DUMP_FLAG_PRIORITY_HIGH
                             | DUMP_FLAG_PROTO);
@@ -1799,6 +1804,10 @@ public final class SystemServer implements Dumpable {
 
             t.traceBegin("WindowManagerServiceOnInitReady");
             wm.onInitReady();
+            t.traceEnd();
+
+            t.traceBegin("StartGameSpaceService");
+            mSystemServiceManager.startService(GameSpaceService.class);
             t.traceEnd();
 
             t.traceBegin("StartInfinitySystemExService");
@@ -2245,6 +2254,12 @@ public final class SystemServer implements Dumpable {
             } catch (Throwable e) {
                 reportWtf("initializing NetworkStackClient", e);
             }
+            t.traceEnd();
+
+            // CustomDeviceConfigService must run before services that read boot-time
+            // DeviceConfig flags.
+            t.traceBegin("StartCustomDeviceConfigService");
+            mSystemServiceManager.startService(CustomDeviceConfigService.class);
             t.traceEnd();
 
             t.traceBegin("StartNetworkManagementService");
@@ -2953,10 +2968,6 @@ public final class SystemServer implements Dumpable {
                 t.traceEnd();
             }
 
-            // CustomDeviceConfigService
-            t.traceBegin("StartCustomDeviceConfigService");
-            mSystemServiceManager.startService(CustomDeviceConfigService.class);
-            t.traceEnd();
         }
 
         t.traceBegin("StartMediaProjectionManager");

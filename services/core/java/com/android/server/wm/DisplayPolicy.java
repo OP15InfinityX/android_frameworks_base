@@ -817,6 +817,12 @@ public class DisplayPolicy {
         mHasNavigationBar = LineageSettings.System.getIntForUser(resolver,
                 LineageSettings.System.FORCE_SHOW_NAVBAR, Utils.hasNavbarByDefault(mContext) ? 1 : 0,
                 UserHandle.USER_CURRENT) != 0;
+        if (mDisplayContent.isDefaultDisplay && LineageSettings.System.getStringForUser(resolver,
+                LineageSettings.System.ENABLE_TASKBAR, UserHandle.USER_CURRENT) == null) {
+            LineageSettings.System.putIntForUser(resolver,
+                    LineageSettings.System.ENABLE_TASKBAR, isTablet() ? 1 : 0,
+                    UserHandle.USER_CURRENT);
+        }
         mTaskBarEnabled = LineageSettings.System.getIntForUser(resolver,
                 LineageSettings.System.ENABLE_TASKBAR, isTablet() ? 1 : 0,
                 UserHandle.USER_CURRENT) != 0;

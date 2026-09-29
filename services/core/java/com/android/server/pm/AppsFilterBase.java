@@ -42,7 +42,6 @@ import com.android.server.om.OverlayReferenceMapper;
 import com.android.server.pm.pkg.AndroidPackage;
 import com.android.server.pm.pkg.PackageStateInternal;
 import com.android.server.pm.pkg.SharedUserApi;
-import com.android.server.wm.AxSandboxService;
 import com.android.internal.pm.pkg.component.ParsedActivity;
 import com.android.internal.pm.pkg.component.ParsedIntentInfo;
 import com.android.server.pm.snapshot.PackageDataSnapshot;

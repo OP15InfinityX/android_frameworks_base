@@ -37,6 +37,7 @@ import com.android.systemui.qs.panels.ui.compose.infinitegrid.Tile
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberCustomColorScheme
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberDualTargetTileStyle
 import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberQSPanelStyle
+import com.android.systemui.qs.panels.ui.compose.infinitegrid.rememberClassicTileRowSpacing
 import com.android.systemui.qs.panels.ui.viewmodel.BounceableTileViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.QuickQuickSettingsViewModel
 import com.android.systemui.qs.shared.ui.QuickSettings.Elements.toElementKey
@@ -54,6 +55,7 @@ fun ContentScope.QuickQuickSettings(
     val squishiness by viewModel.squishinessViewModel.squishiness.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val classicStyle = rememberQSPanelStyle()
+    val classicRowSpacing = if (classicStyle) rememberClassicTileRowSpacing() else dimensionResource(R.dimen.qs_tile_margin_vertical)
 
     Box(modifier = modifier) {
         GridAnchor()
@@ -68,7 +70,7 @@ fun ContentScope.QuickQuickSettings(
             VerticalSpannedGrid(
                 columns = columns,
                 columnSpacing = dimensionResource(R.dimen.qs_tile_margin_horizontal),
-                rowSpacing = dimensionResource(R.dimen.qs_tile_margin_vertical),
+                rowSpacing = classicRowSpacing,
                 spans = spans,
                 modifier = Modifier.sysuiResTag("qqs_tile_layout"),
                 keys = { sizedTiles[it].tile.spec },

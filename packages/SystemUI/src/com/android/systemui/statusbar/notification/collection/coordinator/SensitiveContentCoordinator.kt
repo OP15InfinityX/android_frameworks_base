@@ -45,7 +45,7 @@ import com.android.systemui.statusbar.notification.collection.listbuilder.plugga
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.android.systemui.statusbar.policy.SensitiveNotificationProtectionController
 import com.android.systemui.user.domain.interactor.SelectedUserInteractor
-import com.android.systemui.applocker.AxAppLockerHelper
+import com.axion.applocker.AxAppLockerHelper
 import dagger.Binds
 import dagger.Module
 import javax.inject.Inject
@@ -223,10 +223,10 @@ constructor(
                 entry.sbn.notification.extras.getBoolean(
                     AxSandboxManager.EXTRA_NOTIFICATION_APP_LOCKED,
                     false,
-                ) && axAppLockerHelper.needsAuth(entry.sbn.packageName, entry.sbn.user.identifier)
+                ) &&
+                    axAppLockerHelper.needsAuth(entry.sbn.packageName, entry.sbn.user.identifier)
             val needsRedaction =
-                isAppLocked ||
-                    lockscreenUserManager.getRedactionType(entry) != REDACTION_TYPE_NONE
+                isAppLocked || lockscreenUserManager.getRedactionType(entry) != REDACTION_TYPE_NONE
             val isSensitive = userPublic && needsRedaction
             entry.setSensitive(
                 isSensitive || shouldProtectNotification,

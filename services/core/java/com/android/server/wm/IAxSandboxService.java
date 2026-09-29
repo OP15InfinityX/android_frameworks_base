@@ -19,14 +19,150 @@ import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Intent;
 
+import com.android.internal.app.HiddenNotificationInfo;
+import com.android.internal.app.IAppLockStateListener;
+import com.android.internal.app.IAppSessionListener;
+import com.android.internal.app.IHiddenNotificationListener;
+import com.android.server.LocalServices;
+
+import java.util.Collections;
+import java.util.List;
+
 /**
  * @hide
  */
 public interface IAxSandboxService {
 
-    public static final IAxSandboxService DEFAULT = new IAxSandboxService() {};
+    IAxSandboxService DEFAULT = new IAxSandboxService() {};
+
+    static IAxSandboxService get() {
+        final IAxSandboxService service = LocalServices.getService(IAxSandboxService.class);
+        return service != null ? service : DEFAULT;
+    }
 
     default void systemReadyInternal() {
+    }
+
+    default boolean isAppLocked(String packageName) {
+        return false;
+    }
+
+    default int getAppLockState(String packageName) {
+        return 0;
+    }
+
+    default int getAppLockStateForUser(String packageName, int userId) {
+        return 0;
+    }
+
+    default boolean hasAppLock(String packageName) {
+        return false;
+    }
+
+    default boolean isPackageHidden(String packageName) {
+        return false;
+    }
+
+    default void addLockedApp(String packageName) {
+    }
+
+    default void removeLockedApp(String packageName) {
+    }
+
+    default void setPackageHidden(String packageName, boolean hidden) {
+    }
+
+    default List<String> getLockedPackages() {
+        return Collections.emptyList();
+    }
+
+    default List<String> getHiddenPackages() {
+        return Collections.emptyList();
+    }
+
+    default List<String> getLockablePackages() {
+        return Collections.emptyList();
+    }
+
+    default boolean isPackageLockable(String packageName) {
+        return false;
+    }
+
+    default void unlockApp(String packageName, int userId) {
+    }
+
+    default void promptUnlock(String packageName, int userId) {
+    }
+
+    default void registerAppLockStateListener(IAppLockStateListener listener) {
+    }
+
+    default void unregisterAppLockStateListener(IAppLockStateListener listener) {
+    }
+
+    default void registerAppSessionListener(IAppSessionListener listener) {
+    }
+
+    default void unregisterAppSessionListener(IAppSessionListener listener) {
+    }
+
+    default void registerHiddenNotificationListener(IHiddenNotificationListener listener) {
+    }
+
+    default void unregisterHiddenNotificationListener(IHiddenNotificationListener listener) {
+    }
+
+    default List<HiddenNotificationInfo> getHiddenNotifications() {
+        return Collections.emptyList();
+    }
+
+    default void onHiddenNotificationPosted(HiddenNotificationInfo info) {
+    }
+
+    default void onHiddenNotificationRemoved(String key) {
+    }
+
+    default boolean isPackageSandboxed(String packageName) {
+        return false;
+    }
+
+    default void addSandboxedPackage(String packageName) {
+    }
+
+    default void removeSandboxedPackage(String packageName) {
+    }
+
+    default List<String> getSandboxedPackages() {
+        return Collections.emptyList();
+    }
+
+    default void setRestrictedGids(String packageName, int[] gids) {
+    }
+
+    default int[] getRestrictedGids(String packageName) {
+        return null;
+    }
+
+    default boolean isSandboxDataIsolationEnabled(String packageName) {
+        return false;
+    }
+
+    default void setSandboxDataIsolationEnabled(String packageName, boolean enabled) {
+    }
+
+    default boolean isSpoofSettingEnabled(String packageName, String settingKey) {
+        return false;
+    }
+
+    default void setSpoofSettingEnabled(String packageName, String settingKey, boolean enabled) {
+    }
+
+    default List<String> getEnabledSpoofSettings(String packageName) {
+        return Collections.emptyList();
+    }
+
+    default String getSpoofedSetting(String callingPackage, String settingName) {
+        return null;
     }
 
     default void setKeyguardDoneLocked(boolean done) {
@@ -50,6 +186,10 @@ public interface IAxSandboxService {
     }
 
     default boolean isSandboxActivity(ComponentName componentName) {
+        return false;
+    }
+
+    default boolean isAppLockerActivity(ComponentName componentName) {
         return false;
     }
 
@@ -78,5 +218,16 @@ public interface IAxSandboxService {
     }
 
     default void onAppDied(String packageName, int userId) {
+    }
+
+    default boolean isPackageHiddenFromLauncher(String packageName) {
+        return false;
+    }
+
+    default void setPackageHiddenFromLauncher(String packageName, boolean hidden) {
+    }
+
+    default List<String> getHiddenFromLauncherPackages() {
+        return Collections.emptyList();
     }
 }

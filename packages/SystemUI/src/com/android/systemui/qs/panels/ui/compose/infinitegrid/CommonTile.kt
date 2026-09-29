@@ -156,17 +156,18 @@ fun ClassicTileContent(
     val animatedColor by animateColorAsState(colors.background, label = "QSTileCircleBgColor")
     val animatedOutlineColor by animateColorAsState(colors.outline, label = "QSTileOutlineColor")
 
-    val iconBoxSize = CommonTileDefaults.TileHeight
-    val iconSize = CommonTileDefaults.LargeTileIconSize
+    val classicIconSize = rememberClassicTileIconSize()
+    val boxHeight = if (labelHide) classicIconSize else classicIconSize - 8.dp
+    val iconSize = boxHeight * 0.5f
 
     Column(
-        verticalArrangement = Arrangement.Top,
+        verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.fillMaxWidth(),
     ) {
         Box(
             modifier = Modifier
-                .size(iconBoxSize)
+                .size(boxHeight)
                 .thenIf(!isNoBackground) {
                     Modifier
                         .clip(iconShape)
@@ -211,6 +212,7 @@ fun ClassicTileContent(
                 text = label,
                 color = { animatedLabelColor },
                 style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = (classicIconSize * 0.15625f).value.sp,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
                     hyphens = Hyphens.Auto,
@@ -224,6 +226,7 @@ fun ClassicTileContent(
                     text = secondaryLabel ?: "",
                     color = { animatedSecondaryLabelColor },
                     style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = (classicIconSize * 0.13f).value.sp,
                         fontWeight = FontWeight.Normal,
                         textAlign = TextAlign.Center,
                         hyphens = Hyphens.Auto,

@@ -53,8 +53,8 @@ class AxDynamicBarSettings @Inject constructor(
     private val _compactNotifications = MutableStateFlow(true)
     val compactNotifications: StateFlow<Boolean> = _compactNotifications.asStateFlow()
 
-    private val _isHeadsUpEnabled = MutableStateFlow(true)
-    val isHeadsUpEnabled: StateFlow<Boolean> = _isHeadsUpEnabled.asStateFlow()
+    private val _disabledEventTypes = MutableStateFlow<Set<String>>(emptySet())
+    val disabledEventTypes: StateFlow<Set<String>> = _disabledEventTypes.asStateFlow()
 
     private val _chipStyle = MutableStateFlow(0)
     val chipStyle: StateFlow<Int> = _chipStyle.asStateFlow()
@@ -67,9 +67,6 @@ class AxDynamicBarSettings @Inject constructor(
 
     private val _isDynamicIslandScreenRecordingActive = MutableStateFlow(false)
     val isDynamicIslandScreenRecordingActive: StateFlow<Boolean> = _isDynamicIslandScreenRecordingActive.asStateFlow()
-
-    private val _disabledEventTypes = MutableStateFlow<Set<String>>(emptySet())
-    val disabledEventTypes: StateFlow<Set<String>> = _disabledEventTypes.asStateFlow()
 
     private val _areLyricsShowingOnLockscreen = MutableStateFlow(false)
     val areLyricsShowingOnLockscreen: StateFlow<Boolean> = _areLyricsShowingOnLockscreen.asStateFlow()
@@ -143,11 +140,6 @@ class AxDynamicBarSettings @Inject constructor(
             settingsObserver,
             UserHandle.USER_ALL,
         )
-        globalSettings.registerContentObserverSync(
-            Global.HEADS_UP_NOTIFICATIONS_ENABLED,
-            false,
-            settingsObserver,
-        )
         systemSettings.registerContentObserverForUserSync(
             "status_bar_show_dynamic_island",
             false,
@@ -195,8 +187,6 @@ class AxDynamicBarSettings @Inject constructor(
             secureSettings.getIntForUser(KEY_KEYGUARD_BATTERY_CHIP_MODE, 1, UserHandle.USER_CURRENT)
         _compactNotifications.value =
             secureSettings.getIntForUser(KEY_COMPACT_NOTIFICATIONS, 1, UserHandle.USER_CURRENT) == 1
-        _isHeadsUpEnabled.value =
-            globalSettings.getInt(Global.HEADS_UP_NOTIFICATIONS_ENABLED, 1) == 1
         _chipStyle.value =
             secureSettings.getIntForUser(KEY_CHIP_STYLE, 0, UserHandle.USER_CURRENT)
 

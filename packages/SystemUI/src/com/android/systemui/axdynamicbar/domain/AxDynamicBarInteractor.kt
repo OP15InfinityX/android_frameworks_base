@@ -31,13 +31,12 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @SysUISingleton
@@ -76,12 +75,17 @@ constructor(
 
     private val autoDismissJobs = ConcurrentHashMap<String, Job>()
     @Volatile private var notifAlertJob: Job? = null
+    @Volatile private var alertHeld = false
+    @Volatile private var alertReplyActive = false
+    @Volatile private var overlayImeVisible = false
 
     private val dismissedEventIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     override var onFocusableRequested: ((Boolean) -> Unit)? = null
 
     var onCollapseRequested: (() -> Unit)? = null
+
+    var onAlertReplyCaptureRequested: ((Boolean) -> Unit)? = null
 
     private var isInitialized = false
 
@@ -265,12 +269,6 @@ constructor(
         applicationScope.launch {
             settings.disabledEventTypes.collect {
                 repository.refreshListeners()
-            }
-        }
-
-        applicationScope.launch {
-            settings.isHeadsUpEnabled.collect { enabled ->
-                if (!enabled) dismissNotificationAlert()
             }
         }
 
@@ -463,12 +461,17 @@ constructor(
             )
 
         when (event) {
-            is IslandEvent.AudioRecording -> repository.notification.clearAudioRecording()
+            is IslandEvent.AudioRecording ->
+                if (event.state == RecordingState.SAVED) {
+                    repository.notification.clearAudioRecording()
+                } else {
+                    repository.notification.dismissAudioRecording()
+                }
             is IslandEvent.Sports -> {
-                repository.smartspace.clearSportsEvent(event.key)
-                repository.notification.clearSportsEvent(event.key)
+                repository.smartspace.clearSportsEvent(event.key, event.team1Name, event.team2Name)
+                repository.notification.clearSportsEvent(event.key, event.team1Name, event.team2Name)
             }
-            is IslandEvent.NowPlaying -> {}
+            is IslandEvent.NowPlaying -> repository.smartspace.dismissNowPlaying()
             is IslandEvent.PromotedOngoing ->
                 repository.notification.clearPromotedOngoing(event.sbn.key)
             is IslandEvent.Media -> repository.media.clear()
@@ -481,7 +484,9 @@ constructor(
             is IslandEvent.Stopwatch -> repository.notification.clearStopwatch()
             is IslandEvent.RingerMode -> repository.system.clearRinger()
             is IslandEvent.Vpn -> repository.connectivity.clearVpn()
-            is IslandEvent.Clipboard -> repository.system.clearClipboard()
+            // Dismissing (manually or via auto-dismiss) only hides the chip; the stash survives.
+            // "Clear all" in the expanded card removes the stash entries explicitly.
+            is IslandEvent.Clipboard -> repository.system.dismissClipboardEvent()
             is IslandEvent.Notification -> repository.notification.dismissNotification(event)
             is IslandEvent.AppSwitch -> repository.appTracking.clear()
             is IslandEvent.Torch -> {
@@ -513,11 +518,13 @@ constructor(
     }
 
     override fun onNotificationAlertInteractionStart() {
+        alertHeld = true
         notifAlertJob?.cancel()
         notifAlertJob = null
     }
 
     override fun onNotificationAlertInteractionEnd() {
+        alertHeld = false
         val current = _uiState.value
         val alert = current.notificationAlert ?: return
         if (alert.isActiveCall()) return
@@ -527,7 +534,39 @@ constructor(
         }
     }
 
+    override fun onAlertReplyActiveChanged(active: Boolean) {
+        val newActive = active && _uiState.value.notificationAlert != null
+        if (newActive == alertReplyActive) return
+        alertReplyActive = newActive
+        onAlertReplyCaptureRequested?.invoke(newActive)
+    }
+
+    fun onOverlayTouchOutsideCard() {
+        if (alertReplyActive) abandonAlertReply()
+    }
+
+    fun onOverlayImeVisibilityChanged(visible: Boolean) {
+        val wasVisible = overlayImeVisible
+        overlayImeVisible = visible
+        if (wasVisible && !visible && alertReplyActive) abandonAlertReply()
+    }
+
+    private fun abandonAlertReply() {
+        if (_uiState.value.notificationAlert == null) {
+            alertReplyActive = false
+            onAlertReplyCaptureRequested?.invoke(false)
+            return
+        }
+        dismissNotificationAlert()
+    }
+
     fun dismissNotificationAlert() {
+        alertHeld = false
+        if (alertReplyActive) {
+            alertReplyActive = false
+            onFocusableRequested?.invoke(false)
+            onAlertReplyCaptureRequested?.invoke(false)
+        }
         notifAlertJob?.cancel()
         notifAlertJob = null
         val current = _uiState.value
@@ -538,7 +577,6 @@ constructor(
 
     private fun shouldSuppressForDndOrRinger(notification: IslandEvent.Notification): Boolean {
         if (notification.isActiveCall()) return false
-        if (!settings.isHeadsUpEnabled.value) return true
         val category = notification.sbn.notification?.category
         if (category == Notification.CATEGORY_CALL || category == Notification.CATEGORY_ALARM) return false
         val zenMode = zenModeController.zen
@@ -562,6 +600,11 @@ constructor(
 
         val hasProgress = notification.progress >= 0 || notification.isProgressIndeterminate
         val isSameKey = existingAlert != null && existingAlert.sbn.key == notification.sbn.key
+
+        if (alertHeld && existingAlert != null) {
+            if (isSameKey) _uiState.value = current.copy(notificationAlert = notification)
+            return
+        }
 
         if (isSameKey && hasProgress) {
             _uiState.value = current.copy(notificationAlert = notification)

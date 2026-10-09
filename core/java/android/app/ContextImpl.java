@@ -3990,11 +3990,6 @@ class ContextImpl extends Context {
         final File[] result = new File[dirs.length];
         for (int i = 0; i < dirs.length; i++) {
             File dir = dirs[i];
-            if (dir == null) {
-                // If input was null, we can't do anything
-                result[i] = null;
-                continue;
-            }
             if (!dir.exists()) {
                 try {
                     if (!tryCreateInProcess || !dir.mkdirs()) {
@@ -4007,11 +4002,10 @@ class ContextImpl extends Context {
                     }
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to ensure " + dir, e);
-                    // Do not null out the dir, so we can still return the path
-                    // effectively preventing the NPE downstream
+                    dir = null;
                 }
             }
-            if (!dir.canWrite()) {
+            if (dir != null && !dir.canWrite()) {
                 // Older versions of the MediaProvider mainline module had a rare early boot race
                 // condition where app-private dirs could be created with the wrong permissions;
                 // fix this up here. This check should be very fast, because dir.exists() above

@@ -28,8 +28,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.graphics.graphicsLayer
@@ -37,10 +37,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -145,15 +141,19 @@ fun AxDynamicBarChip(
                             } else if (!decided) {
 
                                 change.consume()
-                                val current = state?.event
-                                if (current is IslandEvent.AospChip) {
-                                    val expandable = currentExpandable
-                                    if (expandable == null ||
-                                        !viewModel.handleAospChipTap(current, expandable)) {
-                                        viewModel.statusBarExpansion.toggle()
-                                    }
+                                if (viewModel.chipTapClosesPanel(down.uptimeMillis)) {
+                                    viewModel.statusBarExpansion.collapse()
                                 } else {
-                                    viewModel.statusBarExpansion.toggle()
+                                    val current = state?.event
+                                    if (current is IslandEvent.AospChip) {
+                                        val expandable = currentExpandable
+                                        if (expandable == null ||
+                                            !viewModel.handleAospChipTap(current, expandable)) {
+                                            viewModel.statusBarExpansion.expand()
+                                        }
+                                    } else {
+                                        viewModel.statusBarExpansion.expand()
+                                    }
                                 }
                             }
                             

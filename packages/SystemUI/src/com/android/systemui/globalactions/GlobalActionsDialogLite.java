@@ -224,6 +224,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
     private static final String RESTART_ACTION_KEY_RESTART_DOWNLOAD = "restart_download";
     private static final String RESTART_ACTION_KEY_RESTART_FASTBOOT = "restart_fastboot";
     private static final String RESTART_ACTION_KEY_RESTART_SYSTEMUI = "restart_systemui";
+    private static final String GLOBAL_ACTION_KEY_EMERGENCY = "emergency";
 
     // See NotificationManagerService#scheduleDurationReachedLocked
     private static final long TOAST_FADE_TIME = 333;
@@ -780,10 +781,12 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         CurrentUserProvider currentUser = new CurrentUserProvider();
         final UserInfo currentUserInfo = currentUser.get();
 
-        // Make sure emergency affordance action is first, if needed
-        boolean showEmergencyAffordance = actionTypes.contains(GlobalActionType.EMERGENCY);
+        // Make sure emergency affordance action is first
         boolean handledEmergencyAffordance = false;
-        if (showEmergencyAffordance && mEmergencyAffordanceManager.needsEmergencyAffordance()) {
+        boolean showEmergencyAffordance = Arrays.stream(mActions)
+                .anyMatch(GLOBAL_ACTION_KEY_EMERGENCY::equals);
+        if (showEmergencyAffordance &&
+                mEmergencyAffordanceManager.needsEmergencyAffordance()) {
             addIfShouldShowAction(tempActions, new EmergencyAffordanceAction());
             handledEmergencyAffordance = true;
         }
@@ -1038,6 +1041,22 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         }
     }
 
+    private boolean rebootAction(boolean safeMode) {
+        return rebootAction(safeMode, null);
+    }
+
+    private boolean rebootAction(boolean safeMode, String reason) {
+        if (mKeyguardStateController.isMethodSecure() && mKeyguardStateController.isShowing()) {
+            mActivityStarter.postQSRunnableDismissingKeyguard(() -> {
+                mWindowManagerFuncs.reboot(safeMode, reason);
+            });
+            return true;
+        } else {
+            mWindowManagerFuncs.reboot(safeMode, reason);
+            return true;
+        }
+    }
+
     /**
      * Implements {@link GlobalActionsPanelPlugin.Callbacks#dismissGlobalActionsMenu()}, which is
      * called when the quick access wallet requests dismissal.
@@ -1092,7 +1111,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             mUiEventLogger.log(GlobalActionsEvent.GA_SHUTDOWN_LONG_PRESS);
             if (!mUserManager.hasUserRestrictionForUser(UserManager.DISALLOW_SAFE_BOOT,
                     mUserTracker.getUserHandle())) {
-                mWindowManagerFuncs.reboot(true, null);
+                rebootAction(true);
                 return true;
             }
             return false;
@@ -1117,7 +1136,13 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             }
             mUiEventLogger.log(GlobalActionsEvent.GA_SHUTDOWN_PRESS);
             // shutdown by making sure radio and power are handled accordingly.
-            mWindowManagerFuncs.shutdown();
+            if (mKeyguardStateController.isMethodSecure() && mKeyguardStateController.isShowing()) {
+                  mActivityStarter.postQSRunnableDismissingKeyguard(() -> {
+                    mWindowManagerFuncs.shutdown();
+                });
+            } else {
+                mWindowManagerFuncs.shutdown();
+            }
         }
     }
 
@@ -1228,7 +1253,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             mUiEventLogger.log(GlobalActionsEvent.GA_REBOOT_LONG_PRESS);
             if (!mUserManager.hasUserRestrictionForUser(UserManager.DISALLOW_SAFE_BOOT,
                     mUserTracker.getUserHandle())) {
-                mWindowManagerFuncs.reboot(true, null);
+                rebootAction(true);
                 return true;
             }
             return false;
@@ -1255,7 +1280,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
             if (mDelegate != null && shouldShowRestartSubmenu()) {
                 mDelegate.showRestartOptionsMenu();
             } else {
-                mWindowManagerFuncs.reboot(false, null);
+                rebootAction(false);
             }
         }
     }
@@ -1270,7 +1295,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         public boolean onLongPress() {
             if (!mUserManager.hasUserRestrictionForUser(UserManager.DISALLOW_SAFE_BOOT,
                     mUserTracker.getUserHandle())) {
-                mWindowManagerFuncs.reboot(true, null);
+                rebootAction(true);
                 return true;
             }
             return false;
@@ -1278,7 +1303,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
 
         @Override public boolean showDuringKeyguard() { return true; }
         @Override public boolean showBeforeProvisioning() { return true; }
-        @Override public void onPress() { mWindowManagerFuncs.reboot(false, null); }
+        @Override public void onPress() { rebootAction(false); }
     }
 
     private abstract class RestartReasonAction extends SinglePressAction {
@@ -1286,7 +1311,7 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
         @Override public boolean showDuringKeyguard() { return true; }
         @Override public boolean showBeforeProvisioning() { return true; }
         abstract String getReason();
-        @Override public void onPress() { mWindowManagerFuncs.reboot(false, getReason()); }
+        @Override public void onPress() { rebootAction(false, getReason()); }
     }
 
     private final class RestartRecoveryAction extends RestartReasonAction {

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Notifications
@@ -44,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +64,7 @@ import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -79,7 +82,6 @@ import com.android.systemui.axdynamicbar.shared.AlphaSubtle
 import com.android.systemui.axdynamicbar.shared.CardBg
 import com.android.systemui.axdynamicbar.shared.CardBorderBrush
 import com.android.systemui.axdynamicbar.shared.DarkCard
-import com.android.systemui.axdynamicbar.shared.ExpressivePillButton
 import com.android.systemui.axdynamicbar.shared.GreenAccent
 import com.android.systemui.axdynamicbar.shared.OnCardText
 import com.android.systemui.axdynamicbar.shared.RedAccent
@@ -87,6 +89,7 @@ import com.android.systemui.axdynamicbar.shared.ShapeCard
 import com.android.systemui.axdynamicbar.shared.ShapeChip
 import com.android.systemui.axdynamicbar.shared.ShapeIconMedium
 import com.android.systemui.axdynamicbar.shared.ShapeSm
+import com.android.systemui.axdynamicbar.shared.SizeActionHeight
 import com.android.systemui.axdynamicbar.shared.SizeCompactIcon
 import com.android.systemui.axdynamicbar.shared.SizeIconSm
 import com.android.systemui.axdynamicbar.shared.SpaceLg
@@ -99,7 +102,9 @@ import com.android.systemui.axdynamicbar.shared.chipAccentColorFor
 import com.android.systemui.axdynamicbar.shared.chipContentColorOn
 import com.android.systemui.axdynamicbar.shared.sendWithBal
 import com.android.systemui.axdynamicbar.shared.toScaledBitmap
+import com.android.systemui.res.R
 
+private const val MAX_COLLAPSED_ACTIONS = 2
 private const val MAX_EXPANDED_ACTIONS = 3
 private val ThumbnailSize = 44.dp
 
@@ -183,10 +188,24 @@ fun NotificationAlertCard(
     val title = notification.title
     val body = notification.text
     val hasTitleAndBody = title != null && title != notification.senderName && !body.isNullOrEmpty()
-    val hasExtraActions = notification.actions.size > 2
+    val buttonCount = notification.actions.size + if (notification.replyAction != null) 1 else 0
+    val hasExtraActions = buttonCount > MAX_COLLAPSED_ACTIONS
     val hasExpandableContent = !isCall && (hasTitleAndBody || hasExtraActions)
     val accent = chipAccentColorFor(notification)
     var showReply by remember(notification.sbn.key) { mutableStateOf(false) }
+    var gesturePressed by remember { mutableStateOf(false) }
+    var replyFocused by remember(notification.sbn.key) { mutableStateOf(false) }
+    val currentInteractor by rememberUpdatedState(interactor)
+
+    // Card is held while a finger is down OR the reply field has focus.
+    val holding = gesturePressed || replyFocused
+    val lastHolding = remember { booleanArrayOf(false) }
+    LaunchedEffect(holding) {
+        if (holding == lastHolding[0]) return@LaunchedEffect
+        lastHolding[0] = holding
+        if (holding) currentInteractor.onNotificationAlertInteractionStart()
+        else currentInteractor.onNotificationAlertInteractionEnd()
+    }
     val scope = rememberCoroutineScope()
 
     val initialScene = if (initiallyCompact && !isCall) AlertCardScenes.Compact
@@ -212,8 +231,8 @@ fun NotificationAlertCard(
             modifier = Modifier.fillMaxWidth()
                 .pointerInput(Unit) {
                     detectInteractionGesture(
-                        onStart = interactor::onNotificationAlertInteractionStart,
-                        onEnd = interactor::onNotificationAlertInteractionEnd,
+                        onStart = { gesturePressed = true },
+                        onEnd = { gesturePressed = false },
                     )
                 }
                 .clip(ShapeCard)
@@ -250,6 +269,7 @@ fun NotificationAlertCard(
                         },
                         onShowReply = { showReply = true },
                         onSentReply = { showReply = false; onDismiss() },
+                        onReplyFocusChange = { replyFocused = it },
                     )
                 }
                 scene(AlertCardScenes.Expanded) {
@@ -274,6 +294,7 @@ fun NotificationAlertCard(
                         },
                         onShowReply = { showReply = true },
                         onSentReply = { showReply = false; onDismiss() },
+                        onReplyFocusChange = { replyFocused = it },
                     )
                 }
             }
@@ -367,6 +388,7 @@ private fun ContentScope.CardScene(
     onCollapseToCompact: () -> Unit,
     onShowReply: () -> Unit,
     onSentReply: () -> Unit,
+    onReplyFocusChange: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     val title = notification.title
@@ -521,11 +543,13 @@ private fun ContentScope.CardScene(
                     .padding(horizontal = SpaceXxl)
                     .padding(bottom = SpaceXxl),
             ) {
-                if (expanded) {
-                    ExpandedActions(notification, accent, onDismiss, onShowReply)
-                } else {
-                    CollapsedActions(notification, accent, onDismiss, onShowReply)
-                }
+                AlertActions(
+                    notification = notification,
+                    accent = accent,
+                    maxButtons = if (expanded) MAX_EXPANDED_ACTIONS else MAX_COLLAPSED_ACTIONS,
+                    onDismiss = onDismiss,
+                    onReplyClick = onShowReply,
+                )
             }
         }
 
@@ -535,6 +559,7 @@ private fun ContentScope.CardScene(
                 accent = accent,
                 interactor = interactor,
                 onSent = onSentReply,
+                onFocusChange = onReplyFocusChange,
             )
         }
     }
@@ -577,24 +602,25 @@ private fun NotifAvatar(
 }
 
 @Composable
-private fun CollapsedActions(
+private fun AlertActions(
     notification: IslandEvent.Notification,
     accent: Color,
+    maxButtons: Int,
     onDismiss: () -> Unit,
     onReplyClick: () -> Unit,
 ) {
     val context = LocalContext.current
-    val hasReply = notification.replyAction != null
-    val visibleActions = notification.actions.take(2)
-    if (visibleActions.isEmpty() && !hasReply) return
+    val reply = notification.replyAction
+    val appActions = notification.actions.take(maxButtons - if (reply != null) 1 else 0)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(SpaceMd),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (hasReply) {
-            ExpressivePillButton(
-                label = notification.replyAction!!.label.toString(),
+        if (reply != null) {
+            AlertActionPill(
+                label = reply.label.toString(),
                 icon = Icons.AutoMirrored.Filled.Reply,
                 contentColor = chipContentColorOn(accent),
                 backgroundColor = accent,
@@ -602,8 +628,8 @@ private fun CollapsedActions(
                 onClick = onReplyClick,
             )
         }
-        visibleActions.take(if (hasReply) 1 else 2).forEach { action ->
-            ExpressivePillButton(
+        appActions.forEach { action ->
+            AlertActionPill(
                 label = action.label.toString(),
                 contentColor = accent,
                 backgroundColor = accent.copy(alpha = AlphaIconBg),
@@ -613,6 +639,50 @@ private fun CollapsedActions(
                     catch (_: PendingIntent.CanceledException) {}
                     onDismiss()
                 },
+            )
+        }
+        Surface(
+            onClick = onDismiss,
+            shape = CircleShape,
+            color = accent.copy(alpha = AlphaIconBg),
+            modifier = Modifier.size(SizeActionHeight),
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(SizeActionHeight)) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.ax_dynamic_bar_dismiss),
+                    tint = accent,
+                    modifier = Modifier.size(SizeIconSm),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AlertActionPill(
+    label: String,
+    contentColor: Color,
+    backgroundColor: Color,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    onClick: () -> Unit,
+) {
+    Surface(onClick = onClick, shape = ShapeChip, color = backgroundColor, modifier = modifier) {
+        Row(
+            modifier = Modifier.height(SizeActionHeight).padding(horizontal = SpaceLg),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(SpaceSm, Alignment.CenterHorizontally),
+        ) {
+            if (icon != null) {
+                Icon(icon, null, tint = contentColor, modifier = Modifier.size(SizeIconSm))
+            }
+            Text(
+                label,
+                color = contentColor,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -737,61 +807,30 @@ private fun DrawableActionCircle(
 }
 
 @Composable
-private fun ExpandedActions(
-    notification: IslandEvent.Notification,
-    accent: Color,
-    onDismiss: () -> Unit,
-    onReplyClick: () -> Unit,
-) {
-    val context = LocalContext.current
-    val hasReply = notification.replyAction != null
-    val visibleActions = notification.actions.take(MAX_EXPANDED_ACTIONS)
-    if (visibleActions.isEmpty() && !hasReply) return
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(SpaceMd),
-    ) {
-        if (hasReply) {
-            ExpressivePillButton(
-                label = notification.replyAction!!.label.toString(),
-                icon = Icons.AutoMirrored.Filled.Reply,
-                contentColor = chipContentColorOn(accent),
-                backgroundColor = accent,
-                modifier = Modifier.weight(1f),
-                onClick = onReplyClick,
-            )
-        }
-        visibleActions.forEach { action ->
-            ExpressivePillButton(
-                label = action.label.toString(),
-                contentColor = accent,
-                backgroundColor = accent.copy(alpha = AlphaIconBg),
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    try { action.action.actionIntent?.sendWithBal(context) }
-                    catch (_: PendingIntent.CanceledException) {}
-                    onDismiss()
-                },
-            )
-        }
-    }
-}
-
-@Composable
 private fun ReplyField(
     reply: IslandEvent.ReplyAction,
     accent: Color,
     interactor: IslandActions,
     onSent: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
 ) {
     var replyText by remember { mutableStateOf("") }
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
+    val currentOnFocusChange by rememberUpdatedState(onFocusChange)
+    val currentInteractor by rememberUpdatedState(interactor)
 
     LaunchedEffect(Unit) {
+        interactor.onAlertReplyActiveChanged(true)
         interactor.onFocusableRequested?.invoke(true)
         focusRequester.requestFocus()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            currentOnFocusChange(false)
+            currentInteractor.onAlertReplyActiveChanged(false)
+        }
     }
 
     Row(
@@ -808,7 +847,10 @@ private fun ReplyField(
             modifier = Modifier.weight(1f)
                 .padding(horizontal = SpaceLg)
                 .focusRequester(focusRequester)
-                .onFocusChanged { interactor.onFocusableRequested?.invoke(it.isFocused) },
+                .onFocusChanged {
+                    interactor.onFocusableRequested?.invoke(it.isFocused)
+                    onFocusChange(it.isFocused)
+                },
             textStyle = MaterialTheme.typography.bodySmall.copy(color = OnCardText),
             singleLine = true,
             cursorBrush = SolidColor(accent),

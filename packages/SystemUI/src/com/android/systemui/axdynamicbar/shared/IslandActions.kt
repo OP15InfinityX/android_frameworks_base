@@ -58,5 +58,6 @@ interface IslandActions {
     fun onNotificationInteractionEnd(eventId: String)
     fun onNotificationAlertInteractionStart()
     fun onNotificationAlertInteractionEnd()
+    fun onAlertReplyActiveChanged(active: Boolean) {}
     fun launchNotificationDismissingKeyguard(event: IslandEvent.Notification)
 }

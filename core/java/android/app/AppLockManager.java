@@ -13,7 +13,6 @@ package android.app;
 import android.annotation.NonNull;
 import android.annotation.SystemService;
 import android.content.Context;
-import android.os.UserHandle;
 import android.provider.Settings;
 
 import java.util.ArrayList;
@@ -53,8 +52,9 @@ public class AppLockManager {
     @NonNull
     public List<PackageData> getPackageData() {
         List<PackageData> data = new ArrayList<>();
-        List<String> lockedPackages = mAxSandboxManager.getLockedPackages();
-        for (String packageName : mAxSandboxManager.getLockablePackages()) {
+        int userId = mContext.getUserId();
+        List<String> lockedPackages = mAxSandboxManager.getLockedPackages(userId);
+        for (String packageName : mAxSandboxManager.getLockablePackages(userId)) {
             data.add(new PackageData(packageName, lockedPackages.contains(packageName), false));
         }
         for (String packageName : lockedPackages) {
@@ -68,15 +68,15 @@ public class AppLockManager {
     /** @hide */
     @NonNull
     public List<String> getHiddenPackages() {
-        return mAxSandboxManager.getHiddenPackages();
+        return mAxSandboxManager.getHiddenPackages(mContext.getUserId());
     }
 
     /** @hide */
     public void setShouldProtectApp(@NonNull String packageName, boolean protect) {
         if (protect) {
-            mAxSandboxManager.addLockedApp(packageName);
+            mAxSandboxManager.addLockedApp(packageName, mContext.getUserId());
         } else {
-            mAxSandboxManager.removeLockedApp(packageName);
+            mAxSandboxManager.removeLockedApp(packageName, mContext.getUserId());
         }
     }
 
@@ -87,12 +87,12 @@ public class AppLockManager {
 
     /** @hide */
     public void setPackageHidden(@NonNull String packageName, boolean hidden) {
-        mAxSandboxManager.setPackageHidden(packageName, hidden);
+        mAxSandboxManager.setPackageHidden(packageName, hidden, mContext.getUserId());
     }
 
     /** @hide */
     public void unlockPackage(@NonNull String packageName) {
-        mAxSandboxManager.unlockApp(packageName, UserHandle.myUserId());
+        mAxSandboxManager.unlockApp(packageName, mContext.getUserId());
     }
 
     /** @hide */

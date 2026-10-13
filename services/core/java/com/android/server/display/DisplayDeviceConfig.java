@@ -32,6 +32,8 @@ import android.hardware.display.DisplayManagerInternal.RefreshRateLimitation;
 import android.hardware.input.HostUsiVersion;
 import android.os.Environment;
 import android.os.PowerManager;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.MathUtils;
 import android.util.Slog;
@@ -1821,6 +1823,16 @@ public class DisplayDeviceConfig {
      */
     @Nullable
     public float[] getDozeBrightnessSensorValueToBrightness() {
+        if (mContext != null) {
+            int customDozeBrightness = Settings.Secure.getIntForUser(
+                    mContext.getContentResolver(),
+                    Settings.Secure.DOZE_BRIGHTNESS,
+                    35,
+                    UserHandle.USER_CURRENT);
+            if (customDozeBrightness >= 0) {
+                return null;
+            }
+        }
         return mDozeBrightnessSensorValueToBrightness;
     }
 
@@ -1829,6 +1841,16 @@ public class DisplayDeviceConfig {
      * be {@link PowerManager#BRIGHTNESS_INVALID_FLOAT} if undefined.
      */
     public float getDefaultDozeBrightness() {
+        if (mContext != null) {
+            int customDozeBrightness = Settings.Secure.getIntForUser(
+                    mContext.getContentResolver(),
+                    Settings.Secure.DOZE_BRIGHTNESS,
+                    35,
+                    UserHandle.USER_CURRENT);
+            if (customDozeBrightness >= 0) {
+                return customDozeBrightness / 100f;
+            }
+        }
         return mDefaultDozeBrightness;
     }
 

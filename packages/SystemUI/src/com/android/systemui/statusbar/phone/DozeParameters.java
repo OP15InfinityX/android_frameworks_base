@@ -222,6 +222,13 @@ public class DozeParameters implements
     }
 
     public float getScreenBrightnessDoze() {
+        int customDozeBrightness = mSecureSettings.getIntForUser(
+                Settings.Secure.DOZE_BRIGHTNESS,
+                35,
+                UserHandle.USER_CURRENT);
+        if (customDozeBrightness >= 0) {
+            return customDozeBrightness / 100f;
+        }
         return mResources.getInteger(
                 com.android.internal.R.integer.config_screenBrightnessDoze) / 255f;
     }

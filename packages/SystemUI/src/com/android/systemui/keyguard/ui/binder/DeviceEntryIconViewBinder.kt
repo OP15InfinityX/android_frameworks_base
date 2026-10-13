@@ -35,6 +35,7 @@ import com.android.systemui.Dependency
 import com.android.systemui.Flags
 import com.android.systemui.Flags.enableLockscreenBlur
 import com.android.systemui.biometrics.UdfpsIconDrawable
+import com.android.systemui.common.ui.view.BackgroundBlurAlphaSync
 import com.android.systemui.common.ui.view.TouchHandlingView
 import com.android.systemui.keyguard.ui.view.DeviceEntryIconView
 import com.android.systemui.keyguard.ui.viewmodel.DeviceEntryBackgroundViewModel
@@ -53,6 +54,10 @@ import kotlin.math.min
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DisposableHandle
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
@@ -91,9 +96,18 @@ object DeviceEntryIconViewBinder {
         msdlPlayer: MSDLPlayer,
         overrideColor: Color? = null,
     ): DisposableHandle {
+        val disposables = DisposableHandles()
+
         val packageInstalled = Utils.isPackageInstalled(
             view.context, "com.infinity.udfps.icons"
         )
+
+        val tunerScope =
+            CoroutineScope(
+                applicationScope.coroutineContext +
+                    SupervisorJob(applicationScope.coroutineContext[Job])
+            )
+        disposables += DisposableHandle { tunerScope.cancel() }
 
         val shouldUseCustomUdfpsIcon: StateFlow<Boolean> = callbackFlow {
             val callback = object : TunerService.Tunable {
@@ -107,12 +121,11 @@ object DeviceEntryIconViewBinder {
 
             awaitClose { Dependency.get(TunerService::class.java).removeTunable(callback) }
         }.stateIn(
-            scope = applicationScope,
+            scope = tunerScope,
             started = SharingStarted.Eagerly,
             initialValue = false
         )
 
-        val disposables = DisposableHandles()
         val touchHandlingView = view.touchHandlingView
         val fgIconView = view.iconView
         val bgView = view.bgView
@@ -153,7 +166,7 @@ object DeviceEntryIconViewBinder {
                 if (height <= 0 || width <= 0) {
                     return@OnLayoutChangeListener
                 }
-                if (height == oldBottom - oldTop && width == oldLeft - oldRight) {
+                if (height == oldBottom - oldTop && width == oldRight - oldLeft) {
                     return@OnLayoutChangeListener
                 }
                 v?.background?.let {
@@ -351,6 +364,24 @@ object DeviceEntryIconViewBinder {
                             bgView.removeOnLayoutChangeListener(layoutChangeListener)
                         }
 
+                        // The blur region only knows the drawable's own alpha: follow the alpha
+                        // (and visibility) the background is really drawn with - keyguard root
+                        // fade on unlock, shade drag, bgViewModel alpha, custom UDFPS icon hiding
+                        // the background - so the blur never outlives the view. This is the only
+                        // writer of the blur drawable's alpha.
+                        launch("$TAG#blurAlphaSync") {
+                            val blurAlphaSync =
+                                BackgroundBlurAlphaSync(bgView) {
+                                        bgView.background as? BackgroundBlurDrawable
+                                    }
+                                    .start()
+                            try {
+                                awaitCancellation()
+                            } finally {
+                                blurAlphaSync.dispose()
+                            }
+                        }
+
                         launch("$TAG#windowRootViewBlurInteractor.isBlurCurrentlySupported") {
                             windowRootViewBlurInteractor.isBlurCurrentlySupported.collect {
                                 isSupported ->
@@ -361,16 +392,15 @@ object DeviceEntryIconViewBinder {
 
                     launch("$TAG#bgViewModel.alpha") {
                         bgViewModel.alpha.collect { alpha ->
+                            // With lockscreen blur, BackgroundBlurAlphaSync folds this into the
+                            // blur drawable on the next frame.
                             bgView.alpha = alpha
-                            if (enableLockscreenBlur()) {
-                                bgView.background?.alpha = (255 * alpha).toInt()
-                            }
                         }
                     }
                     launch("$TAG#bgViewModel.color") {
                         bgViewModel.color.collect { color ->
                             if (!shouldUseCustomUdfpsIcon.value || !packageInstalled) {
-                            bgView.imageTintList = ColorStateList.valueOf(color)
+                                bgView.imageTintList = ColorStateList.valueOf(color)
                             } else {
                                 bgView.imageTintList = null
                             }

@@ -11957,6 +11957,16 @@ public final class Settings {
         public static final String DOZE_ENABLED = "doze_enabled";
 
         /**
+         * The screen brightness to use in doze mode [0-255].
+         * <p>
+         * Type: int
+         *
+         * @hide
+         */
+        @Readable
+        public static final String DOZE_BRIGHTNESS = "doze_brightness";
+
+        /**
          * Indicates whether doze should be always on.
          * <p>
          * Type: int (0 for false, 1 for true)

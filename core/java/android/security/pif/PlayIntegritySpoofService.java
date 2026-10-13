@@ -9,6 +9,7 @@ import android.content.pm.Signature;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.text.TextUtils;
 import android.util.ArraySet;
@@ -20,12 +21,12 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
-import sun.misc.Unsafe;
 
 /** @hide */
 public final class PlayIntegritySpoofService {
@@ -37,6 +38,8 @@ public final class PlayIntegritySpoofService {
     private static final String GPHOTOS_PACKAGE = "com.google.android.apps.photos";
     private static final String SNAPCHAT_PACKAGE = "com.snapchat.android";
     private static final String NETFLIX_PACKAGE = "com.netflix.mediaclient";
+
+    private static final long LOAD_RETRY_INTERVAL_MS = 5000;
 
     private static final Map<String, Object> PIXEL_XL_PROPS = Map.of(
         "BRAND", "google",
@@ -149,30 +152,17 @@ public final class PlayIntegritySpoofService {
             "cetYeQvVSqeEmQluWfcunQn9C9Vwi2BJIiVJh4IdWZf5/e2PlSSQ9CJjz2bKI17pzdxOmjQfE0JS" +
             "F7Xt";
 
-    private static final Field OFFSET_FIELD;
-    private static final Unsafe UNSAFE;
-
-    static {
-        Unsafe unsafe = null;
-        Field offsetField = null;
-
-        try {
-            Field field = Unsafe.class.getDeclaredField("theUnsafe");
-            field.setAccessible(true);
-            unsafe = (Unsafe) field.get(null);
-            field.setAccessible(false);
-
-            offsetField = Field.class.getDeclaredField("offset");
-            offsetField.setAccessible(true);
-        } catch (Exception e) {
-            Log.e(TAG, "Unable to initialize Unsafe", e);
-        }
-
-        UNSAFE = unsafe;
-        OFFSET_FIELD = offsetField;
-    }
-
     private static PlayIntegritySpoofService sInstance;
+
+    private static final Object sUnsafeLock = new Object();
+    private static boolean sUnsafeLookedUp;
+    private static Object sUnsafe;
+    private static Method sPutObject;
+    private static Method sPutInt;
+    private static Method sPutLong;
+    private static Method sPutBoolean;
+    private static Field sFieldOffset;
+    private static Method sFieldGetOffset;
 
     private volatile int mVerboseLogs = 0;
     private volatile boolean mSpoofBuild = true;
@@ -193,28 +183,35 @@ public final class PlayIntegritySpoofService {
     private volatile boolean mSignatureSpoofed = false;
 
     private final Object mLoadLock = new Object();
+    private long mLastLoadAttempt = 0;
+    private boolean mLoadFailureLogged = false;
 
     private PlayIntegritySpoofService() {}
 
     public static synchronized PlayIntegritySpoofService getInstance() {
         if (sInstance == null) {
             sInstance = new PlayIntegritySpoofService();
-            sInstance.loadConfig();
         }
-        sInstance.ensureLoaded();
         return sInstance;
+    }
+
+    private static boolean canLoadNow() {
+        if (ActivityThread.isSystem()) {
+            return "1".equals(SystemProperties.get("sys.boot_completed"));
+        }
+        return true;
     }
 
     private void ensureLoaded() {
         if (mConfigLoaded) return;
+        if (!canLoadNow()) return;
         synchronized (mLoadLock) {
             if (mConfigLoaded) return;
-            loadConfigInternal();
-        }
-    }
-
-    private void loadConfig() {
-        synchronized (mLoadLock) {
+            final long now = SystemClock.uptimeMillis();
+            if (mLastLoadAttempt != 0 && now - mLastLoadAttempt < LOAD_RETRY_INTERVAL_MS) {
+                return;
+            }
+            mLastLoadAttempt = now;
             loadConfigInternal();
         }
     }
@@ -222,7 +219,6 @@ public final class PlayIntegritySpoofService {
     private void loadConfigInternal() {
         IActivityManager service = ActivityManager.getService();
         if (service == null) {
-            if (mVerboseLogs > 0) Log.w(TAG, "ActivityManager not ready, skipping PIF config load");
             return;
         }
 
@@ -239,12 +235,13 @@ public final class PlayIntegritySpoofService {
             mSpoofSnapchat = spoofSnapchat != null && ("1".equals(spoofSnapchat)
                             || "true".equalsIgnoreCase(spoofSnapchat));
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to fetch PIF config from system_server", e);
+            if (!mLoadFailureLogged) {
+                mLoadFailureLogged = true;
+                Log.w(TAG, "PIF config not available yet: " + e);
+            }
             return;
         }
-
-        Map<String, String> newBuildFields = new ConcurrentHashMap<>();
-        Map<String, String> newSystemProps = new ConcurrentHashMap<>();
+        mLoadFailureLogged = false;
 
         if (content == null || content.isEmpty()) {
             mBuildFields.clear();
@@ -376,17 +373,14 @@ public final class PlayIntegritySpoofService {
 
     public boolean shouldSpoof(String processName) {
         ensureLoaded();
-        if (!mConfigLoaded) return false;
-        if (DROIDGUARD_PACKAGE.equals(processName) || VENDING_PACKAGE.equals(processName)) {
-            return true;
-        }
         if (SNAPCHAT_PACKAGE.equals(processName)) {
             return mSpoofSnapchat;
         }
         if (NETFLIX_PACKAGE.equals(processName)) {
             return mSpoofNetflix;
         }
-        return false;
+        if (!mConfigLoaded) return false;
+        return DROIDGUARD_PACKAGE.equals(processName) || VENDING_PACKAGE.equals(processName);
     }
 
     public boolean isGmsProcess(String dataDir) {
@@ -404,7 +398,6 @@ public final class PlayIntegritySpoofService {
 
     public void spoofBuildFields(String processName) {
         ensureLoaded();
-        if (!mConfigLoaded) return;
 
         boolean isVending = isVending(processName);
         boolean isDroidGuard = isDroidGuard(processName);
@@ -421,6 +414,7 @@ public final class PlayIntegritySpoofService {
         }
 
         if (isNetflix) {
+            if (!mConfigLoaded) return;
             if (!mSpoofVendingBuild) {
                 if (mVerboseLogs > 0) Log.d(TAG, "Vending/Netflix build spoofing disabled");
                 return;
@@ -431,6 +425,8 @@ public final class PlayIntegritySpoofService {
             }
             return;
         }
+
+        if (!mConfigLoaded) return;
 
         if (isVending) {
             if (mSpoofVendingSdk) {
@@ -464,14 +460,7 @@ public final class PlayIntegritySpoofService {
 
         try {
             Field creatorField = findField(PackageInfo.class, "CREATOR");
-            creatorField.setAccessible(true);
-            if (UNSAFE != null && OFFSET_FIELD != null) {
-                long offset = OFFSET_FIELD.getInt(creatorField);
-                UNSAFE.putObject(creatorField.getDeclaringClass(), offset, customCreator);
-            } else {
-                creatorField.set(null, customCreator);
-            }
-            creatorField.setAccessible(false);
+            setStaticField(creatorField, customCreator);
         } catch (Exception e) {
             Log.e(TAG, "Couldn't replace PackageInfoCreator: " + e);
             return;
@@ -526,36 +515,148 @@ public final class PlayIntegritySpoofService {
         throw new NoSuchFieldException("Field '" + fieldName + "' not found");
     }
 
+    private static boolean initUnsafe() {
+        synchronized (sUnsafeLock) {
+            if (sUnsafeLookedUp) return sUnsafe != null && sPutObject != null
+                    && (sFieldOffset != null || sFieldGetOffset != null);
+            sUnsafeLookedUp = true;
+
+            try {
+                Class<?> unsafeClass = Class.forName("sun.misc.Unsafe");
+                Object unsafe = null;
+                for (String name : new String[] { "theUnsafe", "THE_ONE" }) {
+                    try {
+                        Field f = unsafeClass.getDeclaredField(name);
+                        f.setAccessible(true);
+                        unsafe = f.get(null);
+                        if (unsafe != null) break;
+                    } catch (Throwable ignored) {
+                    }
+                }
+                if (unsafe == null) {
+                    try {
+                        unsafe = unsafeClass.getMethod("getUnsafe").invoke(null);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                if (unsafe == null) {
+                    Log.w(TAG, "sun.misc.Unsafe instance unavailable");
+                    return false;
+                }
+
+                sPutObject = unsafeClass.getMethod("putObject",
+                        Object.class, long.class, Object.class);
+                sPutInt = unsafeClass.getMethod("putInt", Object.class, long.class, int.class);
+                sPutLong = unsafeClass.getMethod("putLong", Object.class, long.class, long.class);
+                try {
+                    sPutBoolean = unsafeClass.getMethod("putBoolean",
+                            Object.class, long.class, boolean.class);
+                } catch (NoSuchMethodException ignored) {
+                }
+                sUnsafe = unsafe;
+            } catch (Throwable t) {
+                Log.w(TAG, "Failed to resolve sun.misc.Unsafe: " + t);
+                sUnsafe = null;
+                return false;
+            }
+
+            try {
+                Field f = Field.class.getDeclaredField("offset");
+                f.setAccessible(true);
+                sFieldOffset = f;
+            } catch (Throwable ignored) {
+            }
+            if (sFieldOffset == null) {
+                try {
+                    Method m = Field.class.getDeclaredMethod("getOffset");
+                    m.setAccessible(true);
+                    sFieldGetOffset = m;
+                } catch (Throwable ignored) {
+                }
+            }
+            if (sFieldOffset == null && sFieldGetOffset == null) {
+                Log.w(TAG, "Unable to resolve java.lang.reflect.Field offset");
+                return false;
+            }
+            return true;
+        }
+    }
+
+    private static long fieldOffset(Field field) throws ReflectiveOperationException {
+        if (sFieldOffset != null) {
+            return ((Number) sFieldOffset.get(field)).longValue();
+        }
+        return ((Number) sFieldGetOffset.invoke(field)).longValue();
+    }
+
+    private static void putStaticViaUnsafe(Field field, Object value)
+            throws ReflectiveOperationException {
+        if (!initUnsafe()) {
+            throw new IllegalStateException("Unsafe fallback unavailable");
+        }
+        if (!Modifier.isStatic(field.getModifiers())) {
+            throw new IllegalArgumentException(field.getName() + " is not static");
+        }
+
+        Object base = field.getDeclaringClass();
+        long offset = fieldOffset(field);
+        Class<?> type = field.getType();
+
+        if (!type.isPrimitive()) {
+            sPutObject.invoke(sUnsafe, base, offset, value);
+        } else if (type == int.class) {
+            sPutInt.invoke(sUnsafe, base, offset, ((Number) value).intValue());
+        } else if (type == long.class) {
+            sPutLong.invoke(sUnsafe, base, offset, ((Number) value).longValue());
+        } else if (type == boolean.class && sPutBoolean != null) {
+            sPutBoolean.invoke(sUnsafe, base, offset, (Boolean) value);
+        } else {
+            throw new IllegalArgumentException("Unsupported static type " + type);
+        }
+    }
+
+    private static void setStaticField(Field field, Object value) throws Exception {
+        field.setAccessible(true);
+        try {
+            try {
+                field.set(null, value);
+            } catch (IllegalAccessException e) {
+                putStaticViaUnsafe(field, value);
+            }
+            Object now = field.get(null);
+            if (!Objects.equals(now, value)) {
+                throw new IllegalStateException("write to " + field.getName()
+                        + " did not stick (still " + now + ")");
+            }
+        } finally {
+            field.setAccessible(false);
+        }
+    }
+
     private void spoofSdkInt() {
         try {
             Field field = Build.VERSION.class.getDeclaredField("SDK_INT");
             field.setAccessible(true);
             int oldValue = field.getInt(null);
+            field.setAccessible(false);
             int targetSdk = Math.min(oldValue, 32);
             if (oldValue != targetSdk) {
-                if (UNSAFE != null && OFFSET_FIELD != null) {
-                    long offset = OFFSET_FIELD.getInt(field);
-                    UNSAFE.putInt(field.getDeclaringClass(), offset, targetSdk);
-                } else {
-                    field.set(null, targetSdk);
-                }
+                setStaticField(field, targetSdk);
                 Log.d(TAG + "/Java:PS", "[SDK_INT]: " + oldValue + " -> " + targetSdk);
             }
-            field.setAccessible(false);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to spoof SDK_INT", e);
+            Log.e(TAG, "Failed to spoof SDK_INT: " + e);
         }
     }
 
-    private void spoofField(String fieldName, String value, String logSuffix) {
+    private boolean spoofField(String fieldName, String value, String logSuffix) {
         if (value == null || value.isEmpty()) {
             if (mVerboseLogs > 0) Log.d(TAG, fieldName + " is empty, skipping");
-            return;
+            return false;
         }
 
         try {
-            Field field = null;
-            String oldValue = null;
+            Field field;
 
             if (hasField(Build.class, fieldName)) {
                 field = Build.class.getDeclaredField(fieldName);
@@ -563,16 +664,16 @@ public final class PlayIntegritySpoofService {
                 field = Build.VERSION.class.getDeclaredField(fieldName);
             } else {
                 if (mVerboseLogs > 1) Log.d(TAG, "Field not found: " + fieldName);
-                return;
+                return false;
             }
 
             field.setAccessible(true);
-            oldValue = String.valueOf(field.get(null));
+            String oldValue = String.valueOf(field.get(null));
+            field.setAccessible(false);
 
             if (value.equals(oldValue)) {
                 if (mVerboseLogs > 2) Log.d(TAG, "[" + fieldName + "]: " + value + " (unchanged)");
-                field.setAccessible(false);
-                return;
+                return true;
             }
 
             Class<?> fieldType = field.getType();
@@ -588,31 +689,18 @@ public final class PlayIntegritySpoofService {
                 newValue = Boolean.parseBoolean(value);
             } else {
                 Log.w(TAG, "Unsupported field type: " + fieldType);
-                field.setAccessible(false);
-                return;
+                return false;
             }
 
-            if (UNSAFE != null && OFFSET_FIELD != null) {
-                long offset = OFFSET_FIELD.getInt(field);
-                Object declaringClass = field.getDeclaringClass();
-                if (fieldType == String.class) {
-                    UNSAFE.putObject(declaringClass, offset, newValue);
-                } else if (fieldType == int.class) {
-                    UNSAFE.putInt(declaringClass, offset, (Integer) newValue);
-                } else if (fieldType == long.class) {
-                    UNSAFE.putLong(declaringClass, offset, (Long) newValue);
-                } else if (fieldType == boolean.class) {
-                    UNSAFE.putBoolean(declaringClass, offset, (Boolean) newValue);
-                }
-            } else {
-                field.set(null, newValue);
+            setStaticField(field, newValue);
+
+            if (mVerboseLogs > 0 || mDebug) {
+                Log.d(TAG + "/Java:" + logSuffix, "[" + fieldName + "]: " + oldValue + " -> " + value);
             }
-            field.setAccessible(false);
-
-            Log.d(TAG + "/Java:" + logSuffix, "[" + fieldName + "]: " + oldValue + " -> " + value);
-
+            return true;
         } catch (Exception e) {
-            Log.e(TAG, "Failed to spoof " + fieldName, e);
+            Log.e(TAG, "Failed to spoof " + fieldName + ": " + e);
+            return false;
         }
     }
 
@@ -624,8 +712,9 @@ public final class PlayIntegritySpoofService {
     }
 
     public String getSpoofedProperty(String key) {
+        if (key == null) return null;
         ensureLoaded();
-        if (key == null || !mSpoofProps || !mConfigLoaded) return null;
+        if (!mSpoofProps || !mConfigLoaded) return null;
 
         String value = mSystemProps.get(key);
         if (value != null) return value;
@@ -672,14 +761,21 @@ public final class PlayIntegritySpoofService {
 
     public boolean shouldSpoofPhotos(String packageName) {
         if (!TextUtils.equals(GPHOTOS_PACKAGE, packageName)) return false;
+        ensureLoaded();
         return mSpoofPhotos;
     }
 
     public void spoofPhotosProps() {
+        int ok = 0;
         for (Map.Entry<String, Object> entry : PIXEL_XL_PROPS.entrySet()) {
-            spoofField(entry.getKey(), String.valueOf(entry.getValue()), "Photos");
+            if (spoofField(entry.getKey(), String.valueOf(entry.getValue()), "Photos")) ok++;
         }
-        Log.i(TAG, "Photos spoofing enabled - device appears as Pixel XL");
+        if (ok == PIXEL_XL_PROPS.size()) {
+            Log.i(TAG, "Photos spoofing enabled - device appears as Pixel XL");
+        } else {
+            Log.w(TAG, "Photos spoofing partial: " + ok + "/" + PIXEL_XL_PROPS.size()
+                    + " fields applied");
+        }
     }
 
     public Boolean hasSystemFeature(String name, int version) {

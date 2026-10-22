@@ -942,7 +942,9 @@ public final class Bitmap implements Parcelable {
     @NonNull
     public static Bitmap createScaledAshmemBitmap(
             @NonNull Bitmap src, int dstWidth, int dstHeight, boolean filter) {
-        if (!Flags.scaleBitmapDirectlyToAshmem()) {
+        // Hardware bitmaps cannot be drawn into the software Canvas used by the direct ashmem
+        // path below. Use the established scaling path, which safely handles hardware sources.
+        if (!Flags.scaleBitmapDirectlyToAshmem() || src.getConfig() == Config.HARDWARE) {
             return createScaledBitmap(src, dstWidth, dstHeight, filter);
         }
         src.checkRecycled("Can't copy a recycled bitmap");

@@ -282,6 +282,24 @@ public class BitmapTest {
     }
 
     @Test
+    @DisabledOnRavenwood(blockedBy = HardwareBuffer.class)
+    public void testCreateScaledAshmemBitmapWithHardwareSource() {
+        GraphicBuffer buffer = GraphicBuffer.create(10, 10, PixelFormat.RGBA_8888, GRAPHICS_USAGE);
+        Canvas canvas = buffer.lockCanvas();
+        canvas.drawColor(Color.YELLOW);
+        buffer.unlockCanvasAndPost(canvas);
+        Bitmap hardwareBitmap =
+                Bitmap.wrapHardwareBuffer(HardwareBuffer.createFromGraphicBuffer(buffer), null);
+
+        Bitmap scaledBitmap = Bitmap.createScaledAshmemBitmap(hardwareBitmap, 5, 5, true);
+        Bitmap sharedBitmap = scaledBitmap.asShared();
+
+        assertEquals(5, sharedBitmap.getWidth());
+        assertEquals(5, sharedBitmap.getHeight());
+        assertTrue(sharedBitmap.getConfig() != Bitmap.Config.HARDWARE);
+    }
+
+    @Test
     public void testCopyWithDirectByteBuffer() {
         // Initialize Bitmap
         final int width = 2;

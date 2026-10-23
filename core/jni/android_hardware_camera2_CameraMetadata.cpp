@@ -172,6 +172,8 @@ static jint CameraMetadata_getTagFromKey(JNIEnv *env, jclass thiz, jstring keyNa
         jlong vendorId);
 static jint CameraMetadata_getTagFromKeyLocal(JNIEnv *env, jclass thiz, jlong ptr,
         jstring keyName);
+static jlong CameraMetadata_tryGetTagFromKeyLocal(JNIEnv *env, jclass thiz, jlong ptr,
+        jstring keyName);
 static jint CameraMetadata_getTypeFromTag(JNIEnv *env, jclass thiz, jint tag, jlong vendorId);
 static jint CameraMetadata_getTypeFromTagLocal(JNIEnv *env, jclass thiz, jlong ptr, jint tag);
 static jint CameraMetadata_setupGlobalVendorTagDescriptor(JNIEnv *env, jclass thiz);
@@ -639,6 +641,9 @@ static const JNINativeMethod gCameraMetadataMethods[] = {
   { "nativeGetTagFromKeyLocal",
     "(JLjava/lang/String;)I",
     (void *)CameraMetadata_getTagFromKeyLocal },
+  { "nativeTryGetTagFromKeyLocal",
+    "(JLjava/lang/String;)J",
+    (void *)CameraMetadata_tryGetTagFromKeyLocal },
   { "nativeGetTypeFromTagLocal",
     "(JI)I",
     (void *)CameraMetadata_getTypeFromTagLocal },
@@ -735,11 +740,24 @@ static jint CameraMetadata_getTypeFromTagLocal(JNIEnv *env, jclass thiz, jlong p
 
 static jint CameraMetadata_getTagFromKeyLocal(JNIEnv *env, jclass thiz, jlong ptr,
         jstring keyName) {
+    jlong tag = CameraMetadata_tryGetTagFromKeyLocal(env, thiz, ptr, keyName);
+    if (tag < 0 && !env->ExceptionCheck()) {
+        ScopedUtfChars key(env, keyName);
+        if (key.c_str() != nullptr) {
+            jniThrowExceptionFmt(env, "java/lang/IllegalArgumentException",
+                                 "Could not find tag for key '%s')", key.c_str());
+        }
+    }
+    return tag < 0 ? 0 : static_cast<jint>(tag);
+}
+
+static jlong CameraMetadata_tryGetTagFromKeyLocal(JNIEnv *env, jclass thiz, jlong ptr,
+        jstring keyName) {
     ScopedUtfChars keyScoped(env, keyName);
     const char *key = keyScoped.c_str();
     if (key == NULL) {
         // exception thrown by ScopedUtfChars
-        return 0;
+        return -1;
     }
     ALOGV("%s (key = '%s')", __FUNCTION__, key);
 
@@ -755,11 +773,7 @@ static jint CameraMetadata_getTagFromKeyLocal(JNIEnv *env, jclass thiz, jlong pt
     }
 
     status_t res = CameraMetadata::getTagFromName(key, vTags.get(), &tag);
-    if (res != OK) {
-        jniThrowExceptionFmt(env, "java/lang/IllegalArgumentException",
-                             "Could not find tag for key '%s')", key);
-    }
-    return tag;
+    return res == OK ? static_cast<jlong>(tag) : -1;
 }
 
 static jobject CameraMetadata_getAllVendorKeys(JNIEnv* env, jclass thiz, jlong ptr,

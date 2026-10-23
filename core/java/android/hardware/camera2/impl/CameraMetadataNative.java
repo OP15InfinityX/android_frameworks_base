@@ -612,7 +612,11 @@ public class CameraMetadataNative implements Parcelable {
                 if (key.hasTag()) {
                     tag = key.getTag();
                 } else {
-                    tag = nativeGetTagFromKeyLocal(mMetadataPtr, key.getName());
+                    // Missing optional metadata already returns null in this implementation.
+                    // Avoid throwing a native exception on every repeated OEM feature probe.
+                    long resolvedTag = nativeTryGetTagFromKeyLocal(mMetadataPtr, key.getName());
+                    if (resolvedTag < 0) return null;
+                    tag = (int) resolvedTag;
                     key.cacheTag(tag);
                 }
                 values = readValues(tag);
@@ -622,7 +626,9 @@ public class CameraMetadataNative implements Parcelable {
                     if (key.mFallbackName == null) {
                         return null;
                     }
-                    tag = nativeGetTagFromKeyLocal(mMetadataPtr, key.mFallbackName);
+                    long resolvedTag = nativeTryGetTagFromKeyLocal(mMetadataPtr, key.mFallbackName);
+                    if (resolvedTag < 0) return null;
+                    tag = (int) resolvedTag;
                     values = readValues(tag);
                     if (values == null) {
                         return null;
@@ -2345,6 +2351,9 @@ public class CameraMetadataNative implements Parcelable {
 
     @FastNative
     private static native ArrayList nativeGetAllVendorKeys(long ptr, Class keyClass);
+    // A long distinguishes absence (-1) from every valid unsigned 32-bit vendor tag.
+    @FastNative
+    private static native long nativeTryGetTagFromKeyLocal(long ptr, String keyName);
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @FastNative
     private static native int nativeGetTagFromKeyLocal(long ptr, String keyName)

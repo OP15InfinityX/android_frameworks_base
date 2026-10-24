@@ -18,6 +18,10 @@
 package com.android.systemui.statusbar.policy
 
 import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import com.android.internal.policy.SystemBarUtils
 import com.android.systemui.res.R
@@ -38,6 +42,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private val TAG = BurnInProtectionController::class.simpleName
+private const val STATUS_BAR_BURN_IN_PROTECTION = "status_bar_burn_in_protection"
 
 @SysUISingleton
 class BurnInProtectionController @Inject constructor(
@@ -72,12 +77,25 @@ class BurnInProtectionController @Inject constructor(
     private var statusBarOffsets = Pair(Offset.Zero, Offset.Zero)
     private var navBarOffset = Offset.Zero
 
+    private val statusBarProtectionObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            if (shiftJob?.isActive == true) {
+                updateViews(getStatusBarOffsets(), navBarOffset)
+            }
+        }
+    }
+
     init {
         logD {
             "shiftEnabled = $shiftEnabled, isGesturalMode = ${isGesturalMode()}"
         }
         configurationController.addCallback(this)
         loadResources()
+        context.contentResolver.registerContentObserver(
+            Settings.Global.getUriFor(STATUS_BAR_BURN_IN_PROTECTION),
+            false,
+            statusBarProtectionObserver
+        )
     }
 
     private fun loadResources()  {
@@ -145,14 +163,7 @@ class BurnInProtectionController @Inject constructor(
         if (!shiftEnabled || (shiftJob?.isActive == true)) return
         shiftJob = coroutineScope.launch {
             while (isActive) {
-                val sbOffset = Pair(
-                    Offset(
-                        getBurnInOffset(statusBarStartOffsetsX),
-                        getBurnInOffset(maxStatusBarOffsetY)
-                    ), Offset(
-                        getBurnInOffset(statusBarEndOffsetsX), getBurnInOffset(maxStatusBarOffsetY)
-                    )
-                )
+                val sbOffset = getStatusBarOffsets()
                 val nbOffset = Offset(
                     getBurnInOffset(maxNavBarOffsetX),
                     getBurnInOffset(maxNavBarOffsetY)
@@ -168,6 +179,18 @@ class BurnInProtectionController @Inject constructor(
         logD {
             "Started shift job"
         }
+    }
+
+    private fun getStatusBarOffsets(): Pair<Offset, Offset> {
+        if (Settings.Global.getInt(
+                context.contentResolver, STATUS_BAR_BURN_IN_PROTECTION, 1) == 0) {
+            return Pair(Offset.Zero, Offset.Zero)
+        }
+        val y = getBurnInOffset(maxStatusBarOffsetY)
+        return Pair(
+            Offset(getBurnInOffset(statusBarStartOffsetsX), y),
+            Offset(getBurnInOffset(statusBarEndOffsetsX), y)
+        )
     }
 
     private fun getBurnInOffset(maxOffset: Int): Int {

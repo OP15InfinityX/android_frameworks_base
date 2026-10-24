@@ -22,6 +22,7 @@ import com.android.systemui.axion.volume.domain.interactor.AxionVolumeDialogInte
 import com.android.systemui.axion.volume.domain.model.AxionRingerMode
 import com.android.systemui.axion.volume.domain.model.AxionVolumeDialogState
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
+import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
 import javax.inject.Inject
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -44,7 +45,8 @@ data class AxionVolumeDialogUiState(
     val isLeftSide: Boolean = false,
     val isInteracting: Boolean = false,
     val showingAppVolumes: Boolean = false,
-    val showVolumePercentage: Boolean = false
+    val showVolumePercentage: Boolean = false,
+    val isBlurSupported: Boolean = false,
 ) {
     val shouldAnimateExpansion: Boolean
         get() = visibilityState == VisibilityState.SHOWING
@@ -60,6 +62,7 @@ data class AxionVolumeDialogUiState(
 class AxionVolumeDialogViewModel @Inject constructor(
     private val interactor: AxionVolumeDialogInteractor,
     val sliderHapticsViewModelFactory: SliderHapticsViewModel.Factory,
+    private val windowRootViewBlurInteractor: WindowRootViewBlurInteractor,
     @AxionVolumeDialogScope private val scope: CoroutineScope,
 ) {
     private val _visibilityState = MutableStateFlow(VisibilityState.DISMISSED)
@@ -77,6 +80,7 @@ class AxionVolumeDialogViewModel @Inject constructor(
         _isInteracting,
         _showingAppVolumes,
         interactor.showVolumePercentage,
+        windowRootViewBlurInteractor.isBlurCurrentlySupported,
     ) { flows ->
         val dialogState = flows[0] as AxionVolumeDialogState
         val visibilityState = flows[1] as VisibilityState
@@ -85,6 +89,7 @@ class AxionVolumeDialogViewModel @Inject constructor(
         val isInteracting = flows[4] as Boolean
         val showingAppVolumes = flows[5] as Boolean
         val showVolumePercentage = flows[6] as Boolean
+        val isBlurSupported = flows[7] as Boolean
         
         AxionVolumeDialogUiState(
             dialogState = dialogState,
@@ -94,6 +99,7 @@ class AxionVolumeDialogViewModel @Inject constructor(
             isInteracting = isInteracting,
             showingAppVolumes = showingAppVolumes,
             showVolumePercentage = showVolumePercentage,
+            isBlurSupported = isBlurSupported,
         )
     }.stateIn(
         scope = scope,
@@ -180,9 +186,13 @@ class AxionVolumeDialogViewModel @Inject constructor(
         }
     }
 
-    fun onSeeMoreClick() {
+    fun openMediaOutputSwitcher() {
         visibilityState = VisibilityState.QUICK_DISMISSED
-        interactor.openVolumePanel()
+        interactor.openMediaOutputSwitcher()
+    }
+
+    fun onSeeMoreClick() {
+        openMediaOutputSwitcher()
     }
     
     fun cycleRingerMode() {

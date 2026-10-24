@@ -375,7 +375,7 @@ fun StatusBarPopup(
                                 Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
                                     MediaCard(event = eventMedia, interactor = islandActions)
                                 }
-                                LyricsCard(model = model)
+                                LyricsCard(model = model, alphaProgress = alpha.value)
                             }
                         } else {
                             Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {

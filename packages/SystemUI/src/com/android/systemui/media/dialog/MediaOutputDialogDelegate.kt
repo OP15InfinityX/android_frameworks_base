@@ -20,11 +20,16 @@ import android.app.WallpaperColors
 import android.content.Context
 import android.content.res.ColorStateList
 import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.Icon
+import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.CrossWindowBlurListeners
 import android.view.Gravity
+import java.util.function.Consumer
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -43,6 +48,7 @@ import com.android.media.flags.Flags.enableMediaOutputSwitcherEntryPointTheming
 import com.android.systemui.broadcast.BroadcastSender
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.phone.SystemUIDialog
+import com.android.systemui.common.ui.compose.applyTranslucentBlurBackground
 import com.google.android.material.button.MaterialButton
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -93,6 +99,7 @@ constructor(
     private lateinit var mWarningFixButton: Button
     private var mDismissing = false
     private var currentDialog: SystemUIDialog? = null
+    private var mBlurListener: Consumer<Boolean>? = null
 
     @JvmField
     @VisibleForTesting
@@ -214,9 +221,26 @@ constructor(
 
     override fun onStart(dialog: SystemUIDialog) {
         mMediaSwitchingController.start(this)
+        val blurListeners = runCatching { CrossWindowBlurListeners.getInstance() }.getOrNull()
+        if (blurListeners != null) {
+            val listener = Consumer<Boolean> { supported ->
+                mMainThreadHandler.post {
+                    updateDialogBackgroundBlur(supported)
+                }
+            }
+            mBlurListener = listener
+            blurListeners.addListener(mContext.mainExecutor, listener)
+            updateDialogBackgroundBlur(blurListeners.isCrossWindowBlurEnabled)
+        } else {
+            updateDialogBackgroundBlur(false)
+        }
     }
 
     override fun onStop(dialog: SystemUIDialog) {
+        mBlurListener?.let { listener ->
+            runCatching { CrossWindowBlurListeners.getInstance().removeListener(listener) }
+            mBlurListener = null
+        }
         mMediaSwitchingController.stop()
         mOnDialogEventListener?.onStop(dialog)
         currentDialog = null
@@ -356,13 +380,43 @@ constructor(
         )
     }
 
-    private fun updateDialogBackgroundColor() {
+    private fun updateDialogBackgroundBlur(isBlurSupported: Boolean) {
+        val cornerRadiusPx = mContext.resources.getDimension(R.dimen.media_output_dialog_corner_radius)
         val backgroundColor = mMediaSwitchingController.getColorScheme().getSurfaceContainer()
-        mDialogView.background?.setTint(backgroundColor)
-        mDeviceListLayout.setBackgroundColor(backgroundColor)
+        mDialogView.applyTranslucentBlurBackground(
+            cornerRadiusPx = cornerRadiusPx,
+            isBlurSupported = isBlurSupported,
+            fallbackBackgroundColor = backgroundColor,
+        )
+        if (isBlurSupported) {
+            mDeviceListLayout.setBackgroundColor(Color.TRANSPARENT)
+        }
+    }
+
+    private fun updateDialogBackgroundColor() {
+        val isBlurSupported = runCatching {
+            CrossWindowBlurListeners.getInstance().isCrossWindowBlurEnabled
+        }.getOrDefault(false)
+
+        if (isBlurSupported) {
+            mDeviceListLayout.setBackgroundColor(Color.TRANSPARENT)
+        } else {
+            val backgroundColor = mMediaSwitchingController.getColorScheme().getSurfaceContainer()
+            mDialogView.background?.setTint(backgroundColor)
+            mDeviceListLayout.setBackgroundColor(backgroundColor)
+        }
     }
 
     private fun changeFooterColorForScroll() {
+        val isBlurSupported = runCatching {
+            CrossWindowBlurListeners.getInstance().isCrossWindowBlurEnabled
+        }.getOrDefault(false)
+
+        if (isBlurSupported) {
+            mDialogFooter.background?.setTint(Color.TRANSPARENT)
+            return
+        }
+
         val totalItemCount = mLayoutManager.getItemCount()
         val lastVisibleItemPosition = mLayoutManager.findLastCompletelyVisibleItemPosition()
         val hasBottomScroll = totalItemCount > 0 && lastVisibleItemPosition != totalItemCount - 1

@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
+@file:OptIn(ExperimentalTextApi::class)
+
 package com.android.systemui.statusbar.featurepods.media.ui.compose
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,21 +43,31 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.font.DeviceFontFamilyName
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.android.systemui.common.ui.compose.rememberIsBlurSupported
+import com.android.systemui.common.ui.compose.translucentBlurBackground
+import com.android.systemui.res.R
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 private val PopupShape = RoundedCornerShape(34.dp)
 private val timestampRegex = Regex("\\[(\\d+):(\\d+)(?:[.:](\\d+))?\\]")
+private val EmphasizedFontFamily =
+    FontFamily(Font(DeviceFontFamilyName("variable-title-medium-emphasized")))
 
 data class LyricLine(val timestampMs: Long, val text: String)
 
@@ -62,6 +75,8 @@ data class LyricLine(val timestampMs: Long, val text: String)
 fun LyricsCard(
     model: MediaControlChipModel,
     modifier: Modifier = Modifier,
+    alphaProgress: Float = 1f,
+    isBlurSupported: Boolean = rememberIsBlurSupported(),
 ) {
     val syncedLyrics = model.syncedLyrics
     val plainLyrics = model.lyrics
@@ -71,11 +86,24 @@ fun LyricsCard(
     }
 
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = if (isBlurSupported) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = MaterialTheme.colorScheme.onSurface,
         shape = PopupShape,
-        shadowElevation = 12.dp,
-        modifier = modifier.widthIn(min = 320.dp, max = 400.dp).height(200.dp),
+        shadowElevation = if (isBlurSupported) 0.dp else 12.dp,
+        modifier = modifier
+            .widthIn(min = 320.dp, max = 400.dp)
+            .height(200.dp)
+            .then(
+                if (isBlurSupported) {
+                    Modifier.lyricsCardBackground(
+                        cornerRadius = 34.dp,
+                        isBlurSupported = true,
+                        alphaProgress = alphaProgress,
+                    )
+                } else {
+                    Modifier
+                }
+            ),
     ) {
         if (lyricLines.isNotEmpty()) {
             var currentPosition by remember { mutableLongStateOf(model.positionMs) }
@@ -130,6 +158,7 @@ fun LyricsCard(
                         text = line.text,
                         color = LocalContentColor.current,
                         fontSize = 16.sp,
+                        fontFamily = EmphasizedFontFamily,
                         fontWeight = fontWeight,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
@@ -154,6 +183,7 @@ fun LyricsCard(
                         text = plainLyrics,
                         color = LocalContentColor.current.copy(alpha = 0.8f),
                         fontSize = 15.sp,
+                        fontFamily = EmphasizedFontFamily,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -162,6 +192,19 @@ fun LyricsCard(
         }
     }
 }
+
+@Composable
+fun Modifier.lyricsCardBackground(
+    cornerRadius: Dp,
+    isBlurSupported: Boolean,
+    alphaProgress: Float = 1f,
+    opaqueColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+): Modifier = translucentBlurBackground(
+    cornerRadius = cornerRadius,
+    isBlurSupported = isBlurSupported,
+    alphaProgress = alphaProgress,
+    opaqueColor = opaqueColor,
+)
 
 @Composable
 fun LockscreenLyricsView(
@@ -261,6 +304,7 @@ private fun AnimatedLyricsLine(
         text = text,
         color = Color.White,
         fontSize = fontSize,
+        fontFamily = EmphasizedFontFamily,
         fontWeight = fontWeight,
         textAlign = TextAlign.Center,
         maxLines = 1,

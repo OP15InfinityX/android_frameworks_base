@@ -27,6 +27,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -84,7 +85,9 @@ fun RingerButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = 56.dp,
-    cornerRadius: Dp = 16.dp
+    cornerRadius: Dp = 16.dp,
+    isBlurSupported: Boolean = false,
+    alphaProgress: Float = 1f,
 ) {
     val icon = when (ringerMode) {
         AxionRingerMode.NORMAL -> Icons.Filled.Notifications
@@ -94,10 +97,17 @@ fun RingerButton(
 
     FilledTonalIconButton(
         onClick = onClick,
-        modifier = modifier.size(size),
+        modifier = modifier
+            .size(size)
+            .volumePanelBackground(
+                cornerRadius = cornerRadius,
+                isBlurSupported = isBlurSupported,
+                alphaProgress = alphaProgress,
+                opaqueColor = MaterialTheme.colorScheme.surfaceBright
+            ),
         shape = RoundedCornerShape(cornerRadius),
         colors = IconButtonDefaults.filledTonalIconButtonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceBright,
+            containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onSurface
         )
     ) {

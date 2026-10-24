@@ -17,11 +17,13 @@ package com.android.systemui.media.dialog
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.Drawable
 import android.text.BidiFormatter
 import android.util.Log
+import android.view.CrossWindowBlurListeners
 import android.view.LayoutInflater
 import android.view.View
 import android.view.View.GONE
@@ -272,7 +274,15 @@ class MediaOutputAdapter(controller: MediaSwitchingController) :
         }
 
         private fun updateItemBackground() {
-            mItemLayout.setBackgroundColor(mController.getColorScheme().getSurfaceContainer())
+            val isBlurSupported = runCatching {
+                CrossWindowBlurListeners.getInstance().isCrossWindowBlurEnabled
+            }.getOrDefault(false)
+
+            if (isBlurSupported) {
+                mItemLayout.setBackgroundColor(Color.TRANSPARENT)
+            } else {
+                mItemLayout.setBackgroundColor(mController.getColorScheme().getSurfaceContainer())
+            }
         }
 
         private fun updateContentPadding(verticalPadding: Float) {
@@ -633,7 +643,15 @@ class MediaOutputAdapter(controller: MediaSwitchingController) :
             } else {
                 mTopSeparator.visibility = GONE
             }
-            mItemLayout.setBackgroundColor(mController.getColorScheme().getSurfaceContainer())
+            val isBlurSupported = runCatching {
+                CrossWindowBlurListeners.getInstance().isCrossWindowBlurEnabled
+            }.getOrDefault(false)
+
+            if (isBlurSupported) {
+                mItemLayout.setBackgroundColor(Color.TRANSPARENT)
+            } else {
+                mItemLayout.setBackgroundColor(mController.getColorScheme().getSurfaceContainer())
+            }
             updateExpandButton(isExpandableDivider)
         }
 

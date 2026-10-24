@@ -40,6 +40,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.text.style.TextAlign
@@ -47,10 +48,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.ui.unit.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.systemui.res.R
 import com.android.systemui.axion.volume.domain.model.AxionStreamInfo
 import com.android.systemui.axion.volume.domain.model.AxionVolumeDialogState
 import com.android.systemui.axion.volume.domain.model.VolumeSliderItem
 import com.android.systemui.axion.volume.ui.viewmodel.AxionVolumeDialogViewModel
+import com.android.systemui.common.ui.compose.translucentBlurBackground
 import kotlinx.coroutines.delay
 
 private const val SLIDE_DURATION = 200
@@ -122,7 +125,7 @@ fun AxionVolumeDialogContent(
                 animationSpec = tween(DialogAnimDuration)
             )
         ) {
-            CollapsedVolumeDialog(viewModel = viewModel)
+            CollapsedVolumeDialog(viewModel = viewModel, alphaProgress = visibilityProgress)
         }
 
         AnimatedVisibility(
@@ -136,13 +139,16 @@ fun AxionVolumeDialogContent(
                 animationSpec = tween(DialogAnimDuration)
             )
         ) {
-            ExpandedVolumeDialog(viewModel = viewModel)
+            ExpandedVolumeDialog(viewModel = viewModel, alphaProgress = visibilityProgress)
         }
     }
 }
 
 @Composable
-private fun CollapsedVolumeDialog(viewModel: AxionVolumeDialogViewModel) {
+private fun CollapsedVolumeDialog(
+    viewModel: AxionVolumeDialogViewModel,
+    alphaProgress: Float = 1f
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val ringerMode = uiState.dialogState.ringerMode
     val isLeftSide = uiState.isLeftSide
@@ -158,14 +164,21 @@ private fun CollapsedVolumeDialog(viewModel: AxionVolumeDialogViewModel) {
                 viewModel.toggleExpanded() 
             },
             size = VolumeButtonsSize,
-            cornerRadius = VolumeButtonsSize / 2
+            cornerRadius = VolumeButtonsSize / 2,
+            isBlurSupported = uiState.isBlurSupported,
+            alphaProgress = alphaProgress
         )
 
         Box(
             modifier = Modifier
                 .width(SliderWidthCollapsed)
-                .clip(RoundedCornerShape(32.dp))
-                .background(MaterialTheme.colorScheme.surfaceBright),
+                .volumePanelBackground(
+                    cornerRadius = 32.dp,
+                    isBlurSupported = uiState.isBlurSupported,
+                    alphaProgress = alphaProgress,
+                    opaqueColor = MaterialTheme.colorScheme.surfaceBright
+                )
+                .clip(RoundedCornerShape(32.dp)),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -205,7 +218,10 @@ private fun CollapsedVolumeDialog(viewModel: AxionVolumeDialogViewModel) {
 }
 
 @Composable
-private fun ExpandedVolumeDialog(viewModel: AxionVolumeDialogViewModel) {
+private fun ExpandedVolumeDialog(
+    viewModel: AxionVolumeDialogViewModel,
+    alphaProgress: Float = 1f
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val dialogState = uiState.dialogState
     val isLeftSide = uiState.isLeftSide
@@ -228,10 +244,17 @@ private fun ExpandedVolumeDialog(viewModel: AxionVolumeDialogViewModel) {
                 viewModel.rescheduleTimeout()
                 viewModel.toggleExpanded() 
             },
-            modifier = Modifier.size(VolumeButtonsSize),
+            modifier = Modifier
+                .size(VolumeButtonsSize)
+                .volumePanelBackground(
+                    cornerRadius = VolumeButtonsSize / 2,
+                    isBlurSupported = uiState.isBlurSupported,
+                    alphaProgress = alphaProgress,
+                    opaqueColor = MaterialTheme.colorScheme.surfaceBright
+                ),
             shape = CircleShape,
             colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceBright,
+                containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurface
             ),
             contentPadding = PaddingValues(0.dp)
@@ -250,6 +273,8 @@ private fun ExpandedVolumeDialog(viewModel: AxionVolumeDialogViewModel) {
             dialogState = dialogState,
             panelWidth = panelWidth,
             cornerRadius = DialogCornerRadius,
+            isBlurSupported = uiState.isBlurSupported,
+            alphaProgress = alphaProgress,
             isLandscape = true
         )
     } else {
@@ -261,7 +286,9 @@ private fun ExpandedVolumeDialog(viewModel: AxionVolumeDialogViewModel) {
                 viewModel = viewModel,
                 dialogState = dialogState,
                 panelWidth = panelWidth,
-                cornerRadius = DialogCornerRadius
+                cornerRadius = DialogCornerRadius,
+                isBlurSupported = uiState.isBlurSupported,
+                alphaProgress = alphaProgress
             )
 
             collapseButton()
@@ -275,13 +302,20 @@ private fun ExpandedPanelContent(
     dialogState: AxionVolumeDialogState,
     panelWidth: Dp,
     cornerRadius: Dp,
+    isBlurSupported: Boolean = false,
+    alphaProgress: Float = 1f,
     isLandscape: Boolean = false
 ) {
     Box(
         modifier = Modifier
             .width(panelWidth)
+            .volumePanelBackground(
+                cornerRadius = cornerRadius,
+                isBlurSupported = isBlurSupported,
+                alphaProgress = alphaProgress,
+                opaqueColor = MaterialTheme.colorScheme.surfaceBright
+            )
             .clip(RoundedCornerShape(cornerRadius))
-            .background(MaterialTheme.colorScheme.surfaceBright)
     ) {
         Column(
             modifier = Modifier.padding(vertical = 12.dp),
@@ -339,7 +373,7 @@ private fun ExpandedPanelContent(
                     FilledTonalIconButton(
                         onClick = { 
                             viewModel.rescheduleTimeout()
-                            viewModel.onSeeMoreClick() 
+                            viewModel.openMediaOutputSwitcher() 
                         },
                         modifier = Modifier.size(VolumeButtonsSizeExpanded),
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
@@ -470,3 +504,16 @@ private fun ExpandedSlidersRow(
         }
     }
 }
+
+@Composable
+fun Modifier.volumePanelBackground(
+    cornerRadius: Dp,
+    isBlurSupported: Boolean,
+    alphaProgress: Float = 1f,
+    opaqueColor: Color = MaterialTheme.colorScheme.surfaceBright
+): Modifier = translucentBlurBackground(
+    cornerRadius = cornerRadius,
+    isBlurSupported = isBlurSupported,
+    alphaProgress = alphaProgress,
+    opaqueColor = opaqueColor,
+)

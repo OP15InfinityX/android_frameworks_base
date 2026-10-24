@@ -25,6 +25,7 @@ import com.android.systemui.axion.volume.domain.model.AxionAppVolumeModel
 import com.android.systemui.axion.volume.domain.model.AxionRingerMode
 import com.android.systemui.axion.volume.domain.model.AxionVolumeDialogState
 import com.android.systemui.axion.volume.domain.model.AxionVolumeStreamModel
+import com.android.systemui.media.dialog.MediaOutputDialogManager
 import com.android.systemui.volume.domain.interactor.VolumePanelNavigationInteractor
 import com.android.systemui.volume.ui.navigation.VolumeNavigator
 import javax.inject.Inject
@@ -43,6 +44,7 @@ interface AxionVolumeDialogInteractor {
     fun setAppMute(packageName: String, muted: Boolean)
     fun getSupportedRingerModes(): List<AxionRingerMode>
     fun openVolumePanel()
+    fun openMediaOutputSwitcher()
     fun rescheduleTimeout()
     fun setExpanded(expanded: Boolean)
     val isLeftSide: Flow<Boolean>
@@ -56,6 +58,7 @@ class AxionVolumeDialogInteractorImpl @Inject constructor(
     private val vibrator: Vibrator?,
     private val volumeNavigator: VolumeNavigator,
     private val volumePanelNavigationInteractor: VolumePanelNavigationInteractor,
+    private val mediaOutputDialogManager: MediaOutputDialogManager,
 ) : AxionVolumeDialogInteractor {
 
     override val showVolumePercentage: Flow<Boolean> = volumeRepository.showVolumePercentageFlow
@@ -174,6 +177,19 @@ class AxionVolumeDialogInteractorImpl @Inject constructor(
         volumeNavigator.openVolumePanel(
             volumePanelNavigationInteractor.getVolumePanelRoute()
         )
+    }
+
+    override fun openMediaOutputSwitcher() {
+        val pkg = volumeRepository.activeAppPackageName.value
+        if (!pkg.isNullOrEmpty()) {
+            mediaOutputDialogManager.createAndShow(
+                packageName = pkg,
+                aboveStatusBar = true,
+                useSystemColors = true,
+            )
+        } else {
+            mediaOutputDialogManager.createAndShowForSystemRouting()
+        }
     }
 
     override fun rescheduleTimeout() {

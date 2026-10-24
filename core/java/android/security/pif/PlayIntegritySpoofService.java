@@ -18,11 +18,29 @@ import android.util.JsonReader;
 import android.util.Log;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.StringReader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.security.Key;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.KeyStoreSpi;
+import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
+import java.security.Security;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -167,7 +185,7 @@ public final class PlayIntegritySpoofService {
     private volatile int mVerboseLogs = 0;
     private volatile boolean mSpoofBuild = true;
     private volatile boolean mSpoofProps = true;
-    private volatile boolean mSpoofProvider = true;
+    private volatile boolean mSpoofProvider = false;
     private volatile boolean mSpoofSignature = false;
     private volatile boolean mSpoofVendingBuild = true;
     private volatile boolean mSpoofVendingSdk = false;
@@ -179,8 +197,11 @@ public final class PlayIntegritySpoofService {
     private final Map<String, String> mBuildFields = new ConcurrentHashMap<>();
     private final Map<String, String> mSystemProps = new ConcurrentHashMap<>();
 
+    private volatile String mDeviceInitialSdkInt = "";
     private volatile boolean mConfigLoaded = false;
     private volatile boolean mSignatureSpoofed = false;
+    private volatile boolean mProviderSpoofed = false;
+    private volatile boolean mPropsSpoofed = false;
 
     private final Object mLoadLock = new Object();
     private long mLastLoadAttempt = 0;
@@ -246,6 +267,7 @@ public final class PlayIntegritySpoofService {
         if (content == null || content.isEmpty()) {
             mBuildFields.clear();
             mSystemProps.clear();
+            mDeviceInitialSdkInt = "";
             mConfigLoaded = false;
             if (mVerboseLogs > 0) Log.w(TAG, "No PIF config in Settings.Secure");
             return;
@@ -254,11 +276,12 @@ public final class PlayIntegritySpoofService {
         mVerboseLogs = 0;
         mSpoofBuild = true;
         mSpoofProps = true;
-        mSpoofProvider = true;
+        mSpoofProvider = false;
         mSpoofSignature = false;
         mSpoofVendingBuild = true;
         mSpoofVendingSdk = false;
         mDebug = false;
+        mDeviceInitialSdkInt = "";
 
         try {
             mBuildFields.clear();
@@ -269,6 +292,17 @@ public final class PlayIntegritySpoofService {
                 parseJson(content);
             } else {
                 parseProp(content);
+            }
+
+            String fingerprint = mBuildFields.get("FINGERPRINT");
+            if (fingerprint != null && !fingerprint.isEmpty()) {
+                expandFingerprint(fingerprint);
+            }
+
+            if (mBuildFields.isEmpty() && mSystemProps.isEmpty()) {
+                mConfigLoaded = false;
+                Log.w(TAG, "PIF config contains no usable fields, ignoring");
+                return;
             }
 
             mConfigLoaded = true;
@@ -318,6 +352,11 @@ public final class PlayIntegritySpoofService {
                     case NULL:
                         reader.nextNull();
                         continue;
+                    case BEGIN_OBJECT:
+                    case BEGIN_ARRAY:
+                        if (mVerboseLogs > 0) Log.d(TAG, "Skipping nested value for " + key);
+                        reader.skipValue();
+                        continue;
                     default:
                         value = reader.nextString();
                         break;
@@ -361,6 +400,9 @@ public final class PlayIntegritySpoofService {
             case "DEBUG":
                 mDebug = "1".equals(value) || "true".equalsIgnoreCase(value);
                 break;
+            case "DEVICE_INITIAL_SDK_INT":
+                mDeviceInitialSdkInt = value;
+                break;
             default:
                 if (key.contains(".") || key.startsWith("*")) {
                     mSystemProps.put(key, value);
@@ -371,12 +413,104 @@ public final class PlayIntegritySpoofService {
         }
     }
 
+    private void expandFingerprint(String fingerprint) {
+        List<String> parts = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (int i = 0; i < fingerprint.length(); i++) {
+            char ch = fingerprint.charAt(i);
+            if (ch == '/' || ch == ':') {
+                parts.add(current.toString());
+                current.setLength(0);
+            } else {
+                current.append(ch);
+            }
+        }
+        parts.add(current.toString());
+
+        String[] keys = {
+            "BRAND", "PRODUCT", "DEVICE", "RELEASE", "ID", "INCREMENTAL", "TYPE", "TAGS"
+        };
+        for (int i = 0; i < keys.length && i < parts.size(); i++) {
+            String val = parts.get(i);
+            if (!val.isEmpty()) {
+                mBuildFields.put(keys[i], val);
+            }
+        }
+    }
+    private static String resolveDeviceInitialSdk(String device, String configuredSdk) {
+        if (configuredSdk != null && !configuredSdk.isEmpty()) {
+            return configuredSdk;
+        }
+        if (device != null) {
+            switch (device) {
+                case "oriole":
+                case "raven":
+                    return "31";
+                case "bluejay":
+                    return "32";
+                case "panther":
+                case "cheetah":
+                case "lynx":
+                case "felix":
+                case "tangorpro":
+                    return "33";
+                case "shiba":
+                case "husky":
+                case "akita":
+                case "tokay":
+                case "caiman":
+                case "komodo":
+                case "comet":
+                    return "34";
+                case "tegu":
+                case "stallion":
+                    return "35";
+                case "frankel":
+                case "blazer":
+                case "mustang":
+                case "rango":
+                    return "36";
+                case "cubs":
+                case "grizzly":
+                case "kodiak":
+                case "yogi":
+                    return "37";
+                default:
+                    break;
+            }
+        }
+        return "32";
+    }
+    public static boolean isTargetProcess(String processName) {
+        return DROIDGUARD_PACKAGE.equals(processName)
+                || VENDING_PACKAGE.equals(processName)
+                || isSnapchat(processName)
+                || isNetflix(processName);
+    }
+
+    public static boolean isSnapchat(String processName) {
+        return SNAPCHAT_PACKAGE.equals(processName)
+                || (processName != null && processName.startsWith(SNAPCHAT_PACKAGE + ":"));
+    }
+
+    public static boolean isNetflix(String processName) {
+        return NETFLIX_PACKAGE.equals(processName)
+                || (processName != null && processName.startsWith(NETFLIX_PACKAGE + ":"));
+    }
+
+    public static boolean isPhotosPackage(String packageName) {
+        return TextUtils.equals(GPHOTOS_PACKAGE, packageName);
+    }
+
     public boolean shouldSpoof(String processName) {
+        if (!isTargetProcess(processName)) {
+            return false;
+        }
         ensureLoaded();
-        if (SNAPCHAT_PACKAGE.equals(processName)) {
+        if (isSnapchat(processName)) {
             return mSpoofSnapchat;
         }
-        if (NETFLIX_PACKAGE.equals(processName)) {
+        if (isNetflix(processName)) {
             return mSpoofNetflix;
         }
         if (!mConfigLoaded) return false;
@@ -401,19 +535,19 @@ public final class PlayIntegritySpoofService {
 
         boolean isVending = isVending(processName);
         boolean isDroidGuard = isDroidGuard(processName);
-        boolean isSnapchat = SNAPCHAT_PACKAGE.equals(processName);
-        boolean isNetflix = NETFLIX_PACKAGE.equals(processName);
+        boolean isSnap = isSnapchat(processName);
+        boolean isNflx = isNetflix(processName);
 
-        if (!isDroidGuard && !isVending && !isSnapchat && !isNetflix) return;
+        if (!isDroidGuard && !isVending && !isSnap && !isNflx) return;
 
-        if (isSnapchat) {
+        if (isSnap) {
             for (Map.Entry<String, Object> entry : PIXEL_XL_PROPS.entrySet()) {
                 spoofField(entry.getKey(), String.valueOf(entry.getValue()), "SNAP");
             }
             return;
         }
 
-        if (isNetflix) {
+        if (isNflx) {
             if (!mConfigLoaded) return;
             if (!mSpoofVendingBuild) {
                 if (mVerboseLogs > 0) Log.d(TAG, "Vending/Netflix build spoofing disabled");
@@ -429,14 +563,12 @@ public final class PlayIntegritySpoofService {
         if (!mConfigLoaded) return;
 
         if (isVending) {
-            if (mSpoofVendingSdk) {
-                spoofSdkInt();
-            }
-            if (mSpoofVendingBuild && !mSpoofVendingSdk) {
+            if (mSpoofVendingBuild) {
                 for (Map.Entry<String, String> entry : mBuildFields.entrySet()) {
-                    if ("SDK_INT".equals(entry.getKey())) continue;
                     spoofField(entry.getKey(), entry.getValue(), "PS");
                 }
+            } else if (mSpoofVendingSdk) {
+                spoofSdkInt();
             }
             return;
         }
@@ -446,10 +578,94 @@ public final class PlayIntegritySpoofService {
             return;
         }
 
+        reSpoofBuildFields();
+    }
+
+    public void reSpoofBuildFields() {
+        if (!mConfigLoaded || !mSpoofBuild) return;
         for (Map.Entry<String, String> entry : mBuildFields.entrySet()) {
             spoofField(entry.getKey(), entry.getValue(), "DG");
         }
     }
+
+    public void spoofProperties() {
+        if (!mConfigLoaded || !mSpoofProps || mPropsSpoofed) return;
+
+        Map<String, String> props = new HashMap<>(mSystemProps);
+
+        props.putIfAbsent("init.svc.adbd", "stopped");
+        props.putIfAbsent("sys.usb.state", "mtp");
+        props.putIfAbsent("ro.board.first_api_level", "32");
+
+        String initialSdk = resolveDeviceInitialSdk(
+                mBuildFields.get("DEVICE"), mDeviceInitialSdkInt);
+        if (initialSdk != null && !initialSdk.isEmpty()) {
+            props.putIfAbsent("ro.product.first_api_level", initialSdk);
+        }
+        putPropIfPresent(props, "ro.build.fingerprint", mBuildFields.get("FINGERPRINT"));
+        putPropIfPresent(props, "ro.build.id", mBuildFields.get("ID"));
+        putPropIfPresent(props, "ro.product.device", mBuildFields.get("DEVICE"));
+        putPropIfPresent(props, "ro.product.name", mBuildFields.get("PRODUCT"));
+        putPropIfPresent(props, "ro.product.brand", mBuildFields.get("BRAND"));
+        putPropIfPresent(props, "ro.product.model", mBuildFields.get("MODEL"));
+        putPropIfPresent(props, "ro.build.version.security_patch", mBuildFields.get("SECURITY_PATCH"));
+
+        if (props.isEmpty()) return;
+
+        String[] keys = new String[props.size()];
+        String[] values = new String[props.size()];
+        int idx = 0;
+        for (Map.Entry<String, String> entry : props.entrySet()) {
+            keys[idx] = entry.getKey();
+            values[idx] = entry.getValue();
+            idx++;
+        }
+
+        try {
+            boolean ok = nativeSpoofProperties(keys, values, mDebug || mVerboseLogs > 0);
+            if (ok) {
+                mPropsSpoofed = true;
+                Log.i(TAG, "Property area virtualization active (" + keys.length + " rules)");
+            } else {
+                Log.w(TAG, "Property area virtualization returned false");
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "Failed to run nativeSpoofProperties", t);
+        }
+    }
+
+    private static void putPropIfPresent(Map<String, String> map, String key, String value) {
+        if (value != null && !value.isEmpty()) {
+            map.putIfAbsent(key, value);
+        }
+    }
+
+    public void spoofProvider() {
+        if (!mConfigLoaded || !mSpoofProvider || mProviderSpoofed) return;
+
+        try {
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            Field keyStoreSpiField = keyStore.getClass().getDeclaredField("keyStoreSpi");
+            keyStoreSpiField.setAccessible(true);
+            CustomKeyStoreSpi.sDelegate = (KeyStoreSpi) keyStoreSpiField.get(keyStore);
+            keyStoreSpiField.setAccessible(false);
+        } catch (Throwable t) {
+            Log.e(TAG, "Couldn't get keyStoreSpi field!", t);
+            return;
+        }
+
+        Provider provider = Security.getProvider("AndroidKeyStore");
+        if (provider == null) return;
+
+        Provider customProvider = new CustomProvider(provider);
+        Security.removeProvider("AndroidKeyStore");
+        Security.insertProviderAt(customProvider, 1);
+        mProviderSpoofed = true;
+        Log.i(TAG, "KeyStore provider spoofing enabled");
+    }
+
+    private static native boolean nativeSpoofProperties(
+            String[] keys, String[] values, boolean debug);
 
     public void spoofSignature() {
         if (!mSpoofSignature || mSignatureSpoofed) return;
@@ -676,23 +892,11 @@ public final class PlayIntegritySpoofService {
                 return true;
             }
 
-            Class<?> fieldType = field.getType();
-            Object newValue;
-
-            if (fieldType == String.class) {
-                newValue = value;
-            } else if (fieldType == int.class) {
-                newValue = Integer.parseInt(value);
-            } else if (fieldType == long.class) {
-                newValue = Long.parseLong(value);
-            } else if (fieldType == boolean.class) {
-                newValue = Boolean.parseBoolean(value);
-            } else {
-                Log.w(TAG, "Unsupported field type: " + fieldType);
+            if (field.getType() != String.class) {
                 return false;
             }
 
-            setStaticField(field, newValue);
+            setStaticField(field, value);
 
             if (mVerboseLogs > 0 || mDebug) {
                 Log.d(TAG + "/Java:" + logSuffix, "[" + fieldName + "]: " + oldValue + " -> " + value);
@@ -760,7 +964,7 @@ public final class PlayIntegritySpoofService {
     }
 
     public boolean shouldSpoofPhotos(String packageName) {
-        if (!TextUtils.equals(GPHOTOS_PACKAGE, packageName)) return false;
+        if (!isPhotosPackage(packageName)) return false;
         ensureLoaded();
         return mSpoofPhotos;
     }
@@ -848,6 +1052,117 @@ public final class PlayIntegritySpoofService {
         @Override
         public PackageInfo[] newArray(int size) {
             return originalCreator.newArray(size);
+        }
+    }
+
+    private static final class CustomProvider extends Provider {
+        CustomProvider(Provider provider) {
+            super(provider.getName(), provider.getVersion(), provider.getInfo());
+            putAll(provider);
+            put("KeyStore.AndroidKeyStore", CustomKeyStoreSpi.class.getName());
+        }
+
+        @Override
+        public synchronized Service getService(String type, String algorithm) {
+            PlayIntegritySpoofService.getInstance().reSpoofBuildFields();
+            return super.getService(type, algorithm);
+        }
+    }
+
+    /** @hide */
+    public static final class CustomKeyStoreSpi extends KeyStoreSpi {
+        static volatile KeyStoreSpi sDelegate = null;
+
+        @Override
+        public Key engineGetKey(String alias, char[] password)
+                throws NoSuchAlgorithmException, UnrecoverableKeyException {
+            return sDelegate.engineGetKey(alias, password);
+        }
+
+        @Override
+        public Certificate[] engineGetCertificateChain(String alias) {
+            for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+                if (element.getClassName().toLowerCase(Locale.US).contains("droidguard")) {
+                    Log.w(TAG, "DroidGuard invoked engineGetCertificateChain; throwing exception");
+                    throw new UnsupportedOperationException();
+                }
+            }
+            return sDelegate.engineGetCertificateChain(alias);
+        }
+
+        @Override
+        public Certificate engineGetCertificate(String alias) {
+            return sDelegate.engineGetCertificate(alias);
+        }
+
+        @Override
+        public Date engineGetCreationDate(String alias) {
+            return sDelegate.engineGetCreationDate(alias);
+        }
+
+        @Override
+        public void engineSetKeyEntry(String alias, Key key, char[] password, Certificate[] chain)
+                throws KeyStoreException {
+            sDelegate.engineSetKeyEntry(alias, key, password, chain);
+        }
+
+        @Override
+        public void engineSetKeyEntry(String alias, byte[] key, Certificate[] chain)
+                throws KeyStoreException {
+            sDelegate.engineSetKeyEntry(alias, key, chain);
+        }
+
+        @Override
+        public void engineSetCertificateEntry(String alias, Certificate cert)
+                throws KeyStoreException {
+            sDelegate.engineSetCertificateEntry(alias, cert);
+        }
+
+        @Override
+        public void engineDeleteEntry(String alias) throws KeyStoreException {
+            sDelegate.engineDeleteEntry(alias);
+        }
+
+        @Override
+        public Enumeration<String> engineAliases() {
+            return sDelegate.engineAliases();
+        }
+
+        @Override
+        public boolean engineContainsAlias(String alias) {
+            return sDelegate.engineContainsAlias(alias);
+        }
+
+        @Override
+        public int engineSize() {
+            return sDelegate.engineSize();
+        }
+
+        @Override
+        public boolean engineIsKeyEntry(String alias) {
+            return sDelegate.engineIsKeyEntry(alias);
+        }
+
+        @Override
+        public boolean engineIsCertificateEntry(String alias) {
+            return sDelegate.engineIsCertificateEntry(alias);
+        }
+
+        @Override
+        public String engineGetCertificateAlias(Certificate cert) {
+            return sDelegate.engineGetCertificateAlias(cert);
+        }
+
+        @Override
+        public void engineStore(OutputStream stream, char[] password)
+                throws IOException, NoSuchAlgorithmException, CertificateException {
+            sDelegate.engineStore(stream, password);
+        }
+
+        @Override
+        public void engineLoad(InputStream stream, char[] password)
+                throws IOException, NoSuchAlgorithmException, CertificateException {
+            sDelegate.engineLoad(stream, password);
         }
     }
 }

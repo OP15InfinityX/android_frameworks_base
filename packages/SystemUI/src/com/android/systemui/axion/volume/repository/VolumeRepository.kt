@@ -53,7 +53,7 @@ interface AxionVolumeRepository {
     val isLeftSideFlow: Flow<Boolean>
     val showVolumePercentageFlow: Flow<Boolean>
     val activeAppVolumes: Flow<List<AxionAppVolumeModel>>
-    val activeAppPackageName: Flow<String?>
+    val activeAppPackageName: StateFlow<String?>
     fun setActiveApp(packageName: String?)
     val activeStreamFlow: Flow<Int>
     val inCallFlow: Flow<Boolean>
@@ -246,7 +246,7 @@ class AxionVolumeRepositoryImpl @Inject constructor(
     }
 
     private val _activeAppPackageName = MutableStateFlow<String?>(null)
-    override val activeAppPackageName: Flow<String?> = _activeAppPackageName.asStateFlow()
+    override val activeAppPackageName: StateFlow<String?> = _activeAppPackageName.asStateFlow()
 
     override fun setActiveApp(packageName: String?) {
         _activeAppPackageName.value = packageName

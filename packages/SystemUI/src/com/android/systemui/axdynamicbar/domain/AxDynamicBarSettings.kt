@@ -3,12 +3,10 @@ package com.android.systemui.axdynamicbar.domain
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.UserHandle
-import android.provider.Settings.Global
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.axdynamicbar.shared.EVENT_TYPE_IDS
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Main
-import com.android.systemui.util.settings.GlobalSettings
 import com.android.systemui.util.settings.SecureSettings
 import com.android.systemui.util.settings.SystemSettings
 import javax.inject.Inject
@@ -21,7 +19,6 @@ import org.json.JSONArray
 class AxDynamicBarSettings @Inject constructor(
     @Main private val mainHandler: Handler,
     private val secureSettings: SecureSettings,
-    private val globalSettings: GlobalSettings,
     private val systemSettings: SystemSettings,
 ) {
     companion object {
@@ -170,7 +167,6 @@ class AxDynamicBarSettings @Inject constructor(
         if (!initialized) return
         initialized = false
         secureSettings.getContentResolver().unregisterContentObserver(settingsObserver)
-        globalSettings.getContentResolver().unregisterContentObserver(settingsObserver)
         systemSettings.getContentResolver().unregisterContentObserver(settingsObserver)
     }
 

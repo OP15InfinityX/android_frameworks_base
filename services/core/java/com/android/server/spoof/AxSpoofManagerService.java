@@ -15,22 +15,33 @@
  */
 package com.android.server.spoof;
 
+import android.app.ActivityManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.ContentObserver;
 import android.net.Uri;
+import android.os.Process;
 import android.os.UserHandle;
 import android.provider.Settings;
+import android.security.trickystore.TrickyStoreService;
+import android.text.TextUtils;
 import android.util.Slog;
 
 import com.android.internal.os.BackgroundThread;
 import com.android.server.SystemService;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class AxSpoofManagerService extends SystemService {
     private static final String TAG = "AxSpoofManager";
+
+    private static final String VENDING_PACKAGE = "com.android.vending";
+    private static final String DROIDGUARD_PROCESS = "com.google.android.gms.unstable";
+    private static final String PHOTOS_PACKAGE = "com.google.android.apps.photos";
+    private static final String SNAPCHAT_PACKAGE = "com.snapchat.android";
+    private static final String NETFLIX_PACKAGE = "com.netflix.mediaclient";
 
     private static final String[] WATCHED_KEYS = {
             Settings.Secure.SPOOF_PIF_CONFIG,
@@ -49,6 +60,7 @@ public final class AxSpoofManagerService extends SystemService {
 
     private ContentObserver mObserver;
     private volatile boolean mReady;
+    private volatile int mUserId = UserHandle.USER_SYSTEM;
 
     public AxSpoofManagerService(Context context) {
         super(context);
@@ -67,13 +79,30 @@ public final class AxSpoofManagerService extends SystemService {
         }
     }
 
+    @Override
+    public void onUserSwitching(TargetUser from, TargetUser to) {
+        final int userId = to.getUserIdentifier();
+        BackgroundThread.getHandler().post(() -> {
+            mUserId = userId;
+            refreshAll();
+            maybeSeedDefaultTargets(false);
+            Slog.i(TAG, "Spoof config reloaded for user " + userId);
+            restartPifTargets();
+            restartPhotos();
+            restartSnapchat();
+            restartNetflix();
+        });
+    }
+
     private void systemReady() {
         if (mReady) {
             return;
         }
+        mUserId = ActivityManager.getCurrentUser();
         refreshAll();
         registerObserver();
         mReady = true;
+        maybeSeedDefaultTargets(false);
         Slog.i(TAG, "AxSpoofManager ready");
     }
 
@@ -83,8 +112,11 @@ public final class AxSpoofManagerService extends SystemService {
         }
         mObserver = new ContentObserver(BackgroundThread.getHandler()) {
             @Override
-            public void onChange(boolean selfChange, Uri uri) {
+            public void onChange(boolean selfChange, Uri uri, int userId) {
                 if (uri == null) {
+                    return;
+                }
+                if (userId != UserHandle.USER_ALL && userId != mUserId) {
                     return;
                 }
                 String key = uri.getLastPathSegment();
@@ -93,6 +125,17 @@ public final class AxSpoofManagerService extends SystemService {
                 }
                 refreshKey(key);
                 Slog.i(TAG, "Spoof config refreshed: " + key);
+                if (Settings.Secure.SPOOF_PIF_CONFIG.equals(key)) {
+                    restartPifTargets();
+                } else if (Settings.Secure.SPOOF_PIF_PHOTOS.equals(key)) {
+                    restartPhotos();
+                } else if (Settings.Secure.SPOOF_PIF_SNAPCHAT.equals(key)) {
+                    restartSnapchat();
+                } else if (Settings.Secure.SPOOF_PIF_NETFLIX.equals(key)) {
+                    restartNetflix();
+                } else if (Settings.Secure.SPOOF_TRICKYSTORE_KEYBOX.equals(key)) {
+                    maybeSeedDefaultTargets(true);
+                }
             }
         };
         for (String key : WATCHED_KEYS) {
@@ -121,7 +164,122 @@ public final class AxSpoofManagerService extends SystemService {
     }
 
     private String readSetting(String key) {
-        return Settings.Secure.getStringForUser(mResolver, key, UserHandle.USER_CURRENT);
+        final int userId = mReady ? mUserId : UserHandle.USER_CURRENT;
+        return Settings.Secure.getStringForUser(mResolver, key, userId);
+    }
+
+    /**
+     * Seeds {@link TrickyStoreService#DEFAULT_TARGET_LIST} into the target setting
+     * the first time a keybox is present and the target setting has never been
+     * written. This is what makes a freshly loaded keybox attest GMS and the usual
+     * targets without the user opening the TrickyStore screen and picking defaults.
+     */
+    private void maybeSeedDefaultTargets(boolean restartGms) {
+        try {
+            String keybox = readSetting(Settings.Secure.SPOOF_TRICKYSTORE_KEYBOX);
+            if (TextUtils.isEmpty(keybox)) {
+                return;
+            }
+            // Deliberately a null check, not isEmpty(): "" is a user who cleared
+            // the list and must be respected; null is "never configured".
+            String target = readSetting(Settings.Secure.SPOOF_TRICKYSTORE_TARGET);
+            if (target != null) {
+                return;
+            }
+
+            Settings.Secure.putStringForUser(
+                    mResolver,
+                    Settings.Secure.SPOOF_TRICKYSTORE_TARGET,
+                    TrickyStoreService.DEFAULT_TARGET_LIST,
+                    mUserId);
+            refreshKey(Settings.Secure.SPOOF_TRICKYSTORE_TARGET);
+            Slog.i(TAG, "Seeded default TrickyStore targets after keybox load (user "
+                    + mUserId + ")");
+
+            if (restartGms) {
+                restartPifTargets();
+            }
+        } catch (Throwable t) {
+            Slog.w(TAG, "Failed to seed default TrickyStore targets", t);
+        }
+    }
+
+    /** Restarts DroidGuard and Play Store so they pick up a new PIF config. */
+    private void restartPifTargets() {
+        try {
+            ActivityManager am = getContext().getSystemService(ActivityManager.class);
+            if (am == null) {
+                return;
+            }
+            am.forceStopPackageAsUser(VENDING_PACKAGE, mUserId);
+            killProcesses(am, DROIDGUARD_PROCESS, false);
+            killProcesses(am, VENDING_PACKAGE, false);
+        } catch (Throwable t) {
+            Slog.w(TAG, "Failed to restart PIF target processes", t);
+        }
+    }
+
+    /** Restarts Google Photos so it picks up a new Photos spoofing state. */
+    private void restartPhotos() {
+        try {
+            ActivityManager am = getContext().getSystemService(ActivityManager.class);
+            if (am == null) {
+                return;
+            }
+            killProcesses(am, PHOTOS_PACKAGE, true);
+        } catch (Throwable t) {
+            Slog.w(TAG, "Failed to restart Photos", t);
+        }
+    }
+
+    /** Restarts Snapchat so it picks up a new Snapchat spoofing state. */
+    private void restartSnapchat() {
+        try {
+            ActivityManager am = getContext().getSystemService(ActivityManager.class);
+            if (am == null) {
+                return;
+            }
+            killProcesses(am, SNAPCHAT_PACKAGE, true);
+        } catch (Throwable t) {
+            Slog.w(TAG, "Failed to restart Snapchat", t);
+        }
+    }
+
+    /** Restarts Netflix so it picks up a new Netflix spoofing state. */
+    private void restartNetflix() {
+        try {
+            ActivityManager am = getContext().getSystemService(ActivityManager.class);
+            if (am == null) {
+                return;
+            }
+            killProcesses(am, NETFLIX_PACKAGE, true);
+        } catch (Throwable t) {
+            Slog.w(TAG, "Failed to restart Netflix", t);
+        }
+    }
+
+    /**
+     * Kills processes of the current user whose name equals {@code name} or, when
+     * {@code includeSubProcesses} is set, starts with {@code name + ":"}.
+     */
+    private void killProcesses(ActivityManager am, String name, boolean includeSubProcesses) {
+        List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
+        if (procs == null) {
+            return;
+        }
+        for (ActivityManager.RunningAppProcessInfo proc : procs) {
+            if (proc.processName == null) {
+                continue;
+            }
+            boolean matches = name.equals(proc.processName)
+                    || (includeSubProcesses && proc.processName.startsWith(name + ":"));
+            if (!matches || UserHandle.getUserId(proc.uid) != mUserId) {
+                continue;
+            }
+            Slog.i(TAG, "Killing spoof target process " + proc.processName
+                    + " (pid=" + proc.pid + ")");
+            Process.killProcess(proc.pid);
+        }
     }
 
     private final class LocalService implements AxSpoofManagerInternal {
@@ -130,7 +288,7 @@ public final class AxSpoofManagerService extends SystemService {
             return getCached(Settings.Secure.SPOOF_PIF_CONFIG);
         }
 
-       @Override
+        @Override
         public String getPifSpoofPhotos() {
             return getCached(Settings.Secure.SPOOF_PIF_PHOTOS);
         }

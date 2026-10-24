@@ -53,7 +53,7 @@ object DynamicIslandFeatureSettings {
     const val COMPACT_WIDTH = "status_bar_dynamic_island_width"
 
     fun ContentResolver.readDynamicIslandWidth(
-        defaultValue: Int = 110,
+        defaultValue: Int = 100,
     ): Int {
         return Settings.System.getIntForUser(
             this,
@@ -65,7 +65,7 @@ object DynamicIslandFeatureSettings {
 
     fun observeDynamicIslandWidth(
         context: Context,
-        defaultValue: Int = 110,
+        defaultValue: Int = 100,
     ): Flow<Int> {
         return callbackFlow {
             val observer =

@@ -92,7 +92,7 @@ fun StatusBarDynamicIslandContainer(
     val shownChip = chips.firstOrNull { it.isPopupShown }
 
     val context = LocalContext.current
-    var customCompactWidth by remember { androidx.compose.runtime.mutableIntStateOf(110) }
+    var customCompactWidth by remember { androidx.compose.runtime.mutableIntStateOf(100) }
 
     LaunchedEffect(context) {
         com.android.systemui.statusbar.featurepods.popups.shared.DynamicIslandFeatureSettings

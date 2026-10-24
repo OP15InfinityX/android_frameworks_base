@@ -99,7 +99,7 @@ fun StatusBarDynamicIslandChip(
     cutoutSpec: DynamicIslandCutoutSpec,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
-    compactWidth: Int = 110,
+    compactWidth: Int = 100,
 ) {
     val context = LocalContext.current
     val chipShape = RoundedCornerShape(50)
@@ -149,7 +149,7 @@ fun StatusBarDynamicIslandChip(
     Row(
         modifier =
             modifier
-                .defaultMinSize(minHeight = 32.dp)
+                .defaultMinSize(minHeight = 41.dp)
                 .width(animatedWidth)
                 .graphicsLayer {
                     alpha = animatedAlpha
@@ -313,7 +313,7 @@ private fun SwipeHint(color: Color) {
     }
 }
 
-private val CompactMediaIslandWidth = 110.dp
+private val CompactMediaIslandWidth = 100.dp
 private val DynamicIslandEmbeddedGapFallbackWidth = 38.dp
 private val DynamicIslandEmbeddedGapMinWidth = 34.dp
 private val DynamicIslandEmbeddedGapMaxWidth = 88.dp

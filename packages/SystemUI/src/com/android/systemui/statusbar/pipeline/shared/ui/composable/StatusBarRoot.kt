@@ -327,6 +327,8 @@ fun StatusBarRoot(
                             }
                         )
 
+                        // Move the whole view to keep its rounded bottom within the drawing area.
+                        translationY = 9f
                         setContent {
                             StatusBarDynamicIslandContainer(
                                 chips = statusBarViewModel.dynamicIslandChips,

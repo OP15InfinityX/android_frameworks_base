@@ -3188,6 +3188,12 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener, CoreSt
                 || (!userCanSkipBouncer
                 && !strongerAuthRequired
                 && userDoesNotHaveTrust
+                // The PIN bouncer can overlap the under-display sensor. Treat its keys as
+                // credential input instead of fingerprint touches until the bouncer closes.
+                // Secure Lock Device explicitly requests biometrics on the bouncer after PIN.
+                && (!isPrimaryBouncerShowingOrWillBeShowing()
+                        || (secureLockDevice() && mIsSecureLockDeviceEnabled
+                                && mSecureLockDeviceListeningForBiometrics))
                 && (!glanceableHubV2() || isUdfpsAuthRequiredOnCommunal));
 
         final boolean shouldListenSecureLockDeviceState = !secureLockDevice()

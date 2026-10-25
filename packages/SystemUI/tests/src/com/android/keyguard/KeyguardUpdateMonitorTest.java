@@ -1138,6 +1138,20 @@ public class KeyguardUpdateMonitorTest extends SysuiTestCase {
         assertThat(mKeyguardUpdateMonitor.shouldListenForFingerprint(false)).isTrue();
     }
 
+    @Test
+    public void udfpsStopsListeningOnPrimaryBouncer_resumesOnLockscreen() {
+        deviceIsInteractive();
+        keyguardIsVisible();
+        assertThat(mKeyguardUpdateMonitor.shouldListenForFingerprint(true)).isTrue();
+
+        bouncerFullyVisible();
+        assertThat(mKeyguardUpdateMonitor.shouldListenForFingerprint(true)).isFalse();
+        assertThat(mKeyguardUpdateMonitor.shouldListenForFingerprint(false)).isTrue();
+
+        mKeyguardUpdateMonitor.setPrimaryBouncerVisibility(false);
+        assertThat(mKeyguardUpdateMonitor.shouldListenForFingerprint(true)).isTrue();
+    }
+
     @EnableFlags(FLAG_SECURE_LOCK_DEVICE)
     @Test
     public void fpStopsListeningWhenSecureLockDeviceEnabled_resumesListeningForBiometricAuth() {

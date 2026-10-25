@@ -51,6 +51,8 @@ object DynamicIslandFeatureSettings {
     }
 
     const val COMPACT_WIDTH = "status_bar_dynamic_island_width"
+    const val COMPACT_HEIGHT = "status_bar_dynamic_island_height"
+    const val VERTICAL_OFFSET = "status_bar_dynamic_island_vertical_offset"
 
     fun ContentResolver.readDynamicIslandWidth(
         defaultValue: Int = 100,
@@ -66,24 +68,42 @@ object DynamicIslandFeatureSettings {
     fun observeDynamicIslandWidth(
         context: Context,
         defaultValue: Int = 100,
-    ): Flow<Int> {
-        return callbackFlow {
-            val observer =
-                object : ContentObserver(Handler(Looper.getMainLooper())) {
-                    override fun onChange(selfChange: Boolean) {
-                        trySend(context.contentResolver.readDynamicIslandWidth(defaultValue))
-                    }
-                }
-            context.contentResolver.registerContentObserver(
-                Settings.System.getUriFor(COMPACT_WIDTH),
-                false,
-                observer,
-                UserHandle.USER_ALL,
-            )
-            trySend(context.contentResolver.readDynamicIslandWidth(defaultValue))
-            awaitClose { context.contentResolver.unregisterContentObserver(observer) }
-        }.distinctUntilChanged()
-    }
+    ): Flow<Int> = observeIntSetting(context, COMPACT_WIDTH, defaultValue, 80, 160)
+
+    fun observeDynamicIslandHeight(context: Context): Flow<Int> =
+        observeIntSetting(context, COMPACT_HEIGHT, 41, 34, 45)
+
+    fun observeDynamicIslandVerticalOffset(context: Context): Flow<Int> =
+        observeIntSetting(context, VERTICAL_OFFSET, 10, 0, 15)
+
+    private fun observeIntSetting(
+        context: Context,
+        key: String,
+        defaultValue: Int,
+        minValue: Int,
+        maxValue: Int,
+    ): Flow<Int> = callbackFlow {
+        fun readValue() = Settings.System.getIntForUser(
+            context.contentResolver,
+            key,
+            defaultValue,
+            UserHandle.USER_CURRENT,
+        ).coerceIn(minValue, maxValue)
+
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                trySend(readValue())
+            }
+        }
+        context.contentResolver.registerContentObserver(
+            Settings.System.getUriFor(key),
+            false,
+            observer,
+            UserHandle.USER_ALL,
+        )
+        trySend(readValue())
+        awaitClose { context.contentResolver.unregisterContentObserver(observer) }
+    }.distinctUntilChanged()
 
     fun observeDynamicIslandFeatureEnabled(
         context: Context,

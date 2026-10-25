@@ -100,6 +100,7 @@ fun StatusBarDynamicIslandChip(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
     compactWidth: Int = 100,
+    compactHeight: Int = 41,
 ) {
     val context = LocalContext.current
     val chipShape = RoundedCornerShape(50)
@@ -149,7 +150,7 @@ fun StatusBarDynamicIslandChip(
     Row(
         modifier =
             modifier
-                .defaultMinSize(minHeight = 41.dp)
+                .defaultMinSize(minHeight = compactHeight.dp)
                 .width(animatedWidth)
                 .graphicsLayer {
                     alpha = animatedAlpha

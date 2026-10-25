@@ -310,6 +310,10 @@ fun StatusBarRoot(
                     phoneStatusBarView.requireViewById<AlphaOptimizedLinearLayout>(
                         R.id.centered_area
                     )
+                // Let the user-adjusted island draw beyond the status bar's height.
+                phoneStatusBarView.clipChildren = false
+                centeredArea.clipChildren = false
+                centeredArea.clipToPadding = false
 
                 val composeView =
                     ComposeView(context).apply {
@@ -328,13 +332,17 @@ fun StatusBarRoot(
                         )
 
                         // Move the whole view to keep its rounded bottom within the drawing area.
-                        translationY = 9f
+                        translationY = 10f
+                        val islandView = this
                         setContent {
                             StatusBarDynamicIslandContainer(
                                 chips = statusBarViewModel.dynamicIslandChips,
                                 onMediaControlPopupVisibilityChanged = { popupShowing ->
                                     mediaHierarchyManager.isMediaControlPopupShowing =
                                         popupShowing
+                                },
+                                onVerticalOffsetChanged = { offsetPx ->
+                                    islandView.translationY = offsetPx.toFloat()
                                 },
                             )
                         }

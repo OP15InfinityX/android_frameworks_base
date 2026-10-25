@@ -48,7 +48,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -62,6 +61,7 @@ import kotlin.math.abs
 fun StatusBarDynamicIslandContainer(
     chips: List<PopupChipModel.Shown>,
     onMediaControlPopupVisibilityChanged: (Boolean) -> Unit,
+    onVerticalOffsetChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val cutoutSpec = rememberDynamicIslandCutoutSpec()
@@ -93,6 +93,7 @@ fun StatusBarDynamicIslandContainer(
 
     val context = LocalContext.current
     var customCompactWidth by remember { androidx.compose.runtime.mutableIntStateOf(100) }
+    var customCompactHeight by remember { androidx.compose.runtime.mutableIntStateOf(41) }
 
     LaunchedEffect(context) {
         com.android.systemui.statusbar.featurepods.popups.shared.DynamicIslandFeatureSettings
@@ -100,6 +101,18 @@ fun StatusBarDynamicIslandContainer(
             .collect { width ->
                 customCompactWidth = width
             }
+    }
+
+    LaunchedEffect(context) {
+        com.android.systemui.statusbar.featurepods.popups.shared.DynamicIslandFeatureSettings
+            .observeDynamicIslandHeight(context)
+            .collect { height -> customCompactHeight = height }
+    }
+
+    LaunchedEffect(context) {
+        com.android.systemui.statusbar.featurepods.popups.shared.DynamicIslandFeatureSettings
+            .observeDynamicIslandVerticalOffset(context)
+            .collect { offsetPx -> onVerticalOffsetChanged(offsetPx) }
     }
 
     // Preserve the last active chip during the exit collapse animation
@@ -222,6 +235,7 @@ fun StatusBarDynamicIslandContainer(
                 pageCount = chips.size,
                 cutoutSpec = cutoutSpec,
                 compactWidth = customCompactWidth,
+                compactHeight = customCompactHeight,
                 modifier =
                     Modifier.pointerInput(chips.size, chip.chipId) {
                         detectHorizontalDragGestures(

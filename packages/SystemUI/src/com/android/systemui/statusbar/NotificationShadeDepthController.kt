@@ -62,6 +62,7 @@ import dagger.Lazy
 import java.io.PrintWriter
 import javax.inject.Inject
 import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -102,6 +103,8 @@ constructor(
         private const val PUSHBACK_SCALE_FOR_LAUNCHER = 0.05f
 
         private const val PUSHBACK_SCALE_FOR_APP = 0.025f
+        private const val SHADE_BLUR_STEP_PX = 2
+        private const val SHADE_BLUR_SCALE_STEPS = 512f
 
         private const val TAG = "DepthController"
     }
@@ -285,7 +288,7 @@ constructor(
         // Brightness slider removes blur
         shadeRadius *= (1 - brightnessMirrorSpring.ratio)
 
-        var blur = shadeRadius.toInt()
+        var blur = quantizeShadeBlurRadius(shadeRadius)
 
         // If the blur comes from waking up, we don't want to zoom out the background
         val zoomOut =
@@ -342,8 +345,20 @@ constructor(
             }
 
     @VisibleForTesting
-    fun zoomOutAsScale(zoomOutProgress: Float): Float =
-        1.0f - zoomOutProgress * getPushbackScale(isHomeFocused)
+    fun zoomOutAsScale(zoomOutProgress: Float): Float {
+        val scale = 1.0f - zoomOutProgress * getPushbackScale(isHomeFocused)
+        return (scale * SHADE_BLUR_SCALE_STEPS).roundToInt() / SHADE_BLUR_SCALE_STEPS
+    }
+
+    private fun quantizeShadeBlurRadius(blurRadius: Float): Int {
+        val blur = blurRadius.toInt()
+        if (blur <= SHADE_BLUR_STEP_PX) {
+            return blur
+        }
+        val quantized =
+            ((blur + SHADE_BLUR_STEP_PX / 2) / SHADE_BLUR_STEP_PX) * SHADE_BLUR_STEP_PX
+        return MathUtils.constrain(quantized, 0, blurUtils.maxBlurRadius.toInt())
+    }
 
     private fun getPushbackScale(isHomeFocused: Boolean): Float =
         if (isHomeFocused) PUSHBACK_SCALE_FOR_LAUNCHER else PUSHBACK_SCALE_FOR_APP
@@ -686,15 +701,14 @@ constructor(
     }
 
     private fun scheduleUpdate() {
-        val (blur, zoomOutFromShadeRadius) = computeBlurAndZoomOut()
-        zoomOutCalculatedFromShadeRadius = zoomOutFromShadeRadius
-
         // Do not blur or zoom out the wallpaper if the blurred wallpaper is not supported.
         if (!windowRootViewBlurInteractor.isBlurredWallpaperOnShadeSupported) {
             return
         }
 
         if (Flags.bouncerUiRevamp() || Flags.glanceableHubBlurredBackground()) {
+            val (blur, zoomOutFromShadeRadius) = computeBlurAndZoomOut()
+            zoomOutCalculatedFromShadeRadius = zoomOutFromShadeRadius
             if (windowRootViewBlurInteractor.isBlurCurrentlySupported.value) {
                 updateScheduled =
                     windowRootViewBlurInteractor.requestBlurForShade(
@@ -715,6 +729,7 @@ constructor(
             return
         }
         updateScheduled = true
+        val (blur, _) = computeBlurAndZoomOut()
         blurUtils.prepareBlur(blur)
         choreographer.postFrameCallback(updateBlurCallback)
     }

@@ -328,6 +328,7 @@ private fun ExpandedPanelContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 val captionsEnabled = dialogState.captionsEnabled
+                val iconContainerAlpha = if (isBlurSupported) 0.4f else 1f
                 FilledTonalIconButton(
                     onClick = { 
                         viewModel.rescheduleTimeout()
@@ -335,7 +336,11 @@ private fun ExpandedPanelContent(
                     },
                     modifier = Modifier.size(VolumeButtonsSizeExpanded),
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = if (captionsEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        containerColor = (if (captionsEnabled) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        }).copy(alpha = iconContainerAlpha),
                         contentColor = if (captionsEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 ) {
@@ -377,7 +382,9 @@ private fun ExpandedPanelContent(
                         },
                         modifier = Modifier.size(VolumeButtonsSizeExpanded),
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(
+                                alpha = iconContainerAlpha
+                            ),
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     ) {
@@ -399,7 +406,8 @@ private fun ExpandedPanelContent(
             RingerSegmentedButton(
                 viewModel = viewModel,
                 ringerMode = dialogState.ringerMode,
-                supportedModes = dialogState.supportedRingerModes
+                supportedModes = dialogState.supportedRingerModes,
+                isBlurSupported = isBlurSupported
             )
         }
     }

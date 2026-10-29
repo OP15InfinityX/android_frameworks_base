@@ -51,6 +51,8 @@ import com.android.systemui.axdynamicbar.shared.IslandActions
 import com.android.systemui.statusbar.quickactions.media.shared.model.MediaControlChipModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.systemui.statusbar.featurepods.media.ui.compose.LyricsCard
+import com.android.systemui.common.ui.compose.rememberIsBlurSupported
+import com.android.systemui.common.ui.compose.translucentBlurBackground
 import com.android.systemui.haptics.slider.compose.ui.SliderHapticsViewModel
 import kotlinx.coroutines.delay
 import com.android.systemui.axdynamicbar.model.IslandEvent
@@ -67,6 +69,8 @@ fun ExpandedIslandContent(
     expandedFilter: String? = null,
     pinnedEventId: String? = null,
     hapticsViewModelFactory: SliderHapticsViewModel.Factory,
+    alphaProgress: Float = 1f,
+    isBlurSupported: Boolean = rememberIsBlurSupported(),
 ) {
     if (events.isEmpty()) return
 
@@ -137,7 +141,12 @@ fun ExpandedIslandContent(
                             onDismiss = { interactor.dismissEvent(event) },
                             modifier = Modifier.animateItem(),
                         ) {
-                            PrimaryCard { NotificationExpanded(event, interactor) }
+                            PrimaryCard(
+                                alphaProgress = alphaProgress,
+                                isBlurSupported = isBlurSupported,
+                            ) {
+                                NotificationExpanded(event, interactor)
+                            }
                         }
                     }
                 } else {
@@ -148,7 +157,10 @@ fun ExpandedIslandContent(
                             onDismiss = { group.forEach { interactor.dismissEvent(it) } },
                             modifier = Modifier.animateItem(),
                         ) {
-                            PrimaryCard {
+                            PrimaryCard(
+                                alphaProgress = alphaProgress,
+                                isBlurSupported = isBlurSupported,
+                            ) {
                                 NotificationGroupCard(
                                     notifications = group,
                                     isExpanded = isExpanded,
@@ -180,13 +192,20 @@ fun ExpandedIslandContent(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 MediaCard(event, interactor)
-                                LyricsCard(model = model)
+                                LyricsCard(
+                                    model = model,
+                                    alphaProgress = alphaProgress,
+                                    isBlurSupported = isBlurSupported,
+                                )
                             }
                         } else {
                             MediaCard(event, interactor)
                         }
                     } else {
-                        PrimaryCard {
+                        PrimaryCard(
+                            alphaProgress = alphaProgress,
+                            isBlurSupported = isBlurSupported,
+                        ) {
                             AnimatedContent(
                                 targetState = event,
                                 transitionSpec = {
@@ -204,7 +223,13 @@ fun ExpandedIslandContent(
                                 contentKey = { it::class.simpleName + it.id },
                                 label = "expanded_card",
                             ) { animatedEvent ->
-                                ExpandedEventContent(animatedEvent, interactor, hapticsViewModelFactory)
+                                ExpandedEventContent(
+                                    event = animatedEvent,
+                                    interactor = interactor,
+                                    hapticsViewModelFactory = hapticsViewModelFactory,
+                                    alphaProgress = alphaProgress,
+                                    isBlurSupported = isBlurSupported,
+                                )
                             }
                         }
                     }
@@ -219,13 +244,21 @@ internal fun ExpandedEventContent(
     event: IslandEvent,
     interactor: IslandActions,
     hapticsViewModelFactory: SliderHapticsViewModel.Factory,
+    alphaProgress: Float = 1f,
+    isBlurSupported: Boolean = false,
 ) {
     when (event) {
         is IslandEvent.AudioRecording -> AudioRecordingExpanded(event, interactor)
         is IslandEvent.PromotedOngoing -> PromotedOngoingExpanded(event, interactor)
         is IslandEvent.Sports -> SportsExpanded(event, interactor)
         is IslandEvent.NowPlaying -> NowPlayingExpanded(event, interactor)
-        is IslandEvent.Media -> MediaExpanded(event, interactor)
+        is IslandEvent.Media ->
+            MediaExpanded(
+                event = event,
+                interactor = interactor,
+                alphaProgress = alphaProgress,
+                isBlurSupported = isBlurSupported,
+            )
         is IslandEvent.Bluetooth -> BluetoothExpanded(event, interactor)
         is IslandEvent.Hotspot -> HotspotExpanded(event)
         is IslandEvent.Charging -> ChargingExpanded(event)
@@ -381,16 +414,30 @@ private fun CallElapsedTimer(startTimeMs: Long, color: Color) {
 }
 
 @Composable
-internal fun PrimaryCard(content: @Composable () -> Unit) {
+internal fun PrimaryCard(
+    alphaProgress: Float = 1f,
+    isBlurSupported: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     Box(
         modifier =
             Modifier.fillMaxWidth()
                 .clip(ShapeCard)
-                .background(CardBg)
+                .then(
+                    if (isBlurSupported) {
+                        Modifier.translucentBlurBackground(
+                            cornerRadius = 28.dp,
+                            isBlurSupported = true,
+                            alphaProgress = alphaProgress,
+                            opaqueColor = CardBg,
+                        )
+                    } else {
+                        Modifier.background(CardBg)
+                    }
+                )
                 .border(1.dp, CardBorderBrush, ShapeCard)
                 .padding(SpaceXxl)
     ) {
         content()
     }
 }
-

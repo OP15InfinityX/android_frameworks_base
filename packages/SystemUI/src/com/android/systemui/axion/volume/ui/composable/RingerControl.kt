@@ -33,12 +33,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.systemui.axion.volume.domain.model.AxionRingerMode
 import com.android.systemui.axion.volume.ui.viewmodel.AxionVolumeDialogViewModel
+import com.android.systemui.common.ui.compose.translucentBlurBackground
 
 @Composable
 fun RingerSegmentedButton(
     viewModel: AxionVolumeDialogViewModel,
     ringerMode: AxionRingerMode,
     supportedModes: List<AxionRingerMode>,
+    isBlurSupported: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val allOptions = listOf(
@@ -47,6 +49,7 @@ fun RingerSegmentedButton(
         AxionRingerMode.SILENT to Icons.Filled.NotificationsOff
     )
     val options = allOptions.filter { it.first in supportedModes }
+    val containerAlpha = if (isBlurSupported) 0.4f else 1f
     
     SingleChoiceSegmentedButtonRow(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)
@@ -61,9 +64,9 @@ fun RingerSegmentedButton(
                 },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                 colors = SegmentedButtonDefaults.colors(
-                    activeContainerColor = MaterialTheme.colorScheme.primary,
+                    activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = containerAlpha),
                     activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                    inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = containerAlpha),
                     inactiveContentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 icon = {}

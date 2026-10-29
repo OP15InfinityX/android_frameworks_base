@@ -26,6 +26,7 @@ import com.android.systemui.qs.tiles.BlurTile
 import com.android.systemui.qs.tiles.BypassChargingTile
 import com.android.systemui.qs.tiles.CPUInfoTile
 import com.android.systemui.qs.tiles.CaffeineTile
+import com.android.systemui.qs.tiles.InfinityInternetTile
 import com.android.systemui.qs.tiles.InfinityMemoryBoostTile
 import com.android.systemui.qs.tiles.CompassTile
 import com.android.systemui.qs.tiles.DataSwitchTile
@@ -143,6 +144,12 @@ interface LineageModule {
     @IntoMap
     @StringKey(InfinityMemoryBoostTile.TILE_SPEC)
     fun bindInfinityMemoryBoostTile(infinityMemoryBoostTile: InfinityMemoryBoostTile): QSTileImpl<*>
+
+    /** Inject InfinityInternetTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(InfinityInternetTile.TILE_SPEC)
+    fun bindInfinityInternetTile(infinityInternetTile: InfinityInternetTile): QSTileImpl<*>
 
     /** Inject OnTheGoTile into tileMap in QSModule */
     @Binds
@@ -317,7 +324,7 @@ interface LineageModule {
                 category = TileCategory.UTILITIES,
             )
 
-@Provides
+        @Provides
         @IntoMap
         @StringKey(InfinityMemoryBoostTile.TILE_SPEC)
         fun provideInfinityMemoryBoostTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
@@ -330,6 +337,21 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.UTILITIES,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(InfinityInternetTile.TILE_SPEC)
+        fun provideInfinityInternetTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(InfinityInternetTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_signal_cellular_alt_24,
+                        labelRes = R.string.quick_settings_internet_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.CONNECTIVITY,
             )
 
         @Provides

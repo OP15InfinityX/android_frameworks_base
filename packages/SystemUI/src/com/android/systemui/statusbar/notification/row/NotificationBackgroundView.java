@@ -29,6 +29,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.View;
 
@@ -342,6 +343,10 @@ public class NotificationBackgroundView extends View implements Dumpable,
     @UiThread
     public void setBlurBackgroundEnabled(boolean enabled) {
         if (!lockscreenBlurForNotifications()) {
+            return;
+        }
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            post(() -> setBlurBackgroundEnabled(enabled));
             return;
         }
         Assert.isMainThread();

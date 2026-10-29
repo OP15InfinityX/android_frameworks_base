@@ -7,9 +7,11 @@ package com.android.systemui.common.ui.compose
 
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
+import android.os.UserHandle
+import android.provider.Settings
+import android.util.TypedValue
 import android.view.CrossWindowBlurListeners
 import android.view.View
-import android.view.ViewTreeObserver
 import com.android.internal.graphics.drawable.BackgroundBlurDrawable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +21,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -29,8 +32,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.android.systemui.res.R
 import java.util.function.Consumer
 
@@ -39,6 +42,9 @@ private class BlurStateHolder(val view: View) {
     var lastAlphaInt = -1
     var lastRadiusPx = -1
     var lastCornerRadiusPx = -1f
+    var lastWidth = -1
+    var lastHeight = -1
+    var isActive = false
 
     fun getOrCreateDrawable(cornerRadiusPx: Float): BackgroundBlurDrawable? {
         if (blurDrawable == null) {
@@ -57,20 +63,27 @@ private class BlurStateHolder(val view: View) {
         blurRadiusPx: Float,
         cornerRadiusPx: Float
     ): Boolean {
-        val drawable = getOrCreateDrawable(cornerRadiusPx) ?: return false
         val alphaInt = (combinedAlpha * 255).toInt()
         val radiusPx = (blurRadiusPx * combinedAlpha).toInt()
 
         if (combinedAlpha <= 0.01f || alphaInt <= 2) {
+            blurDrawable?.let { drawable ->
+                if (lastAlphaInt != 0 || lastRadiusPx != 0) {
+                    drawable.setBlurRadius(0)
+                    drawable.setAlpha(0)
+                    drawable.setBounds(0, 0, 0, 0)
+                }
+            }
             if (lastAlphaInt != 0 || lastRadiusPx != 0) {
-                drawable.setBlurRadius(0)
-                drawable.setAlpha(0)
-                drawable.setBounds(0, 0, 0, 0)
                 lastAlphaInt = 0
                 lastRadiusPx = 0
             }
+            lastWidth = 0
+            lastHeight = 0
+            isActive = false
             return false
         } else {
+            val drawable = getOrCreateDrawable(cornerRadiusPx) ?: return false
             if (lastAlphaInt != alphaInt || lastRadiusPx != radiusPx || lastCornerRadiusPx != cornerRadiusPx) {
                 drawable.setBlurRadius(radiusPx)
                 drawable.setAlpha(alphaInt)
@@ -79,8 +92,20 @@ private class BlurStateHolder(val view: View) {
                 lastRadiusPx = radiusPx
                 lastCornerRadiusPx = cornerRadiusPx
             }
+            isActive = true
             return true
         }
+    }
+
+    fun updateBounds(width: Int, height: Int) {
+        if (!isActive || width <= 0 || height <= 0 ||
+            (lastWidth == width && lastHeight == height)
+        ) {
+            return
+        }
+        blurDrawable?.setBounds(0, 0, width, height)
+        lastWidth = width
+        lastHeight = height
     }
 
     fun cleanup() {
@@ -93,6 +118,9 @@ private class BlurStateHolder(val view: View) {
         lastAlphaInt = -1
         lastRadiusPx = -1
         lastCornerRadiusPx = -1f
+        lastWidth = -1
+        lastHeight = -1
+        isActive = false
     }
 }
 
@@ -135,7 +163,16 @@ fun Modifier.translucentBlurBackground(
         return this.background(color = opaqueColor, shape = RoundedCornerShape(cornerRadius))
     }
 
-    val resolvedBlurRadiusDp = blurRadiusDp ?: dimensionResource(R.dimen.volume_dialog_background_surface_blur_radius)
+    val context = LocalContext.current
+    val blurIntensity = Settings.System.getIntForUser(
+        context.contentResolver,
+        Settings.System.BLUR_INTENSITY,
+        100,
+        UserHandle.USER_CURRENT
+    ).coerceIn(0, 200)
+
+    val baseBlurRadiusDp = blurRadiusDp ?: 25.dp
+    val resolvedBlurRadiusDp = baseBlurRadiusDp * (blurIntensity / 100f)
     val resolvedTintColor = tintColor ?: colorResource(R.color.volume_dialog_view_background_blur).copy(alpha = 0.58f)
 
     val view = LocalView.current
@@ -144,67 +181,21 @@ fun Modifier.translucentBlurBackground(
     val cornerRadiusPx = with(density) { cornerRadius.toPx() }
 
     val holder = remember(view) { BlurStateHolder(view) }
+    val currentAlphaProgress = rememberUpdatedState(alphaProgress)
 
-    DisposableEffect(holder, view, alphaProgress, blurRadiusPx, cornerRadiusPx) {
-        val syncBlur = {
-            val hierarchyAlpha = calculateEffectiveAlpha(view)
-            val combinedAlpha = (alphaProgress.coerceIn(0f, 1f) * hierarchyAlpha).coerceIn(0f, 1f)
-            holder.updateDrawable(combinedAlpha, blurRadiusPx, cornerRadiusPx)
-        }
-
-        val preDrawListener = ViewTreeObserver.OnPreDrawListener {
-            syncBlur()
-            true
-        }
-
-        var registeredObserver: ViewTreeObserver? = null
-
-        val registerListener = {
-            val observer = view.viewTreeObserver
-            if (observer.isAlive) {
-                if (registeredObserver != observer) {
-                    registeredObserver?.let {
-                        if (it.isAlive) it.removeOnPreDrawListener(preDrawListener)
-                    }
-                    observer.addOnPreDrawListener(preDrawListener)
-                    registeredObserver = observer
-                }
-            }
-            syncBlur()
-        }
-
+    DisposableEffect(holder, view, blurRadiusPx, cornerRadiusPx) {
         val attachListener = object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) {
-                registerListener()
-            }
-
             override fun onViewDetachedFromWindow(v: View) {
-                registeredObserver?.let {
-                    if (it.isAlive) it.removeOnPreDrawListener(preDrawListener)
-                }
-                registeredObserver = null
                 holder.cleanup()
             }
+
+            override fun onViewAttachedToWindow(v: View) = Unit
         }
 
         view.addOnAttachStateChangeListener(attachListener)
-        if (view.isAttachedToWindow) {
-            registerListener()
-        } else {
-            syncBlur()
-        }
 
         onDispose {
             view.removeOnAttachStateChangeListener(attachListener)
-            registeredObserver?.let {
-                if (it.isAlive) it.removeOnPreDrawListener(preDrawListener)
-            }
-            if (!view.isAttachedToWindow) {
-                val currentObserver = view.viewTreeObserver
-                if (currentObserver.isAlive) {
-                    currentObserver.removeOnPreDrawListener(preDrawListener)
-                }
-            }
             holder.cleanup()
             view.invalidate()
         }
@@ -212,14 +203,16 @@ fun Modifier.translucentBlurBackground(
 
     val blurModifier = Modifier.drawBehind {
         val hierarchyAlpha = calculateEffectiveAlpha(view)
-        val combinedAlpha = (alphaProgress.coerceIn(0f, 1f) * hierarchyAlpha).coerceIn(0f, 1f)
-        val isActive = holder.updateDrawable(combinedAlpha, blurRadiusPx, cornerRadiusPx)
-        if (isActive) {
+        val combinedAlpha =
+            (currentAlphaProgress.value.coerceIn(0f, 1f) * hierarchyAlpha).coerceIn(0f, 1f)
+        holder.updateDrawable(combinedAlpha, blurRadiusPx, cornerRadiusPx)
+
+        if (holder.isActive) {
             holder.blurDrawable?.let { drawable ->
                 val w = size.width.toInt()
                 val h = size.height.toInt()
                 if (w > 0 && h > 0) {
-                    drawable.setBounds(0, 0, w, h)
+                    holder.updateBounds(w, h)
                     drawIntoCanvas { canvas ->
                         drawable.draw(canvas.nativeCanvas)
                     }
@@ -237,7 +230,7 @@ fun View.applyTranslucentBlurBackground(
     cornerRadiusPx: Float,
     isBlurSupported: Boolean,
     fallbackBackgroundColor: Int? = null,
-    blurRadiusPx: Float = context.resources.getDimensionPixelSize(R.dimen.volume_dialog_background_surface_blur_radius).toFloat(),
+    blurRadiusPx: Float = -1f,
     tintColor: Int = (context.getColor(R.color.volume_dialog_view_background_blur) and 0x00FFFFFF) or ((255 * 0.58f).toInt() shl 24),
 ) {
     if (!isBlurSupported) {
@@ -248,12 +241,30 @@ fun View.applyTranslucentBlurBackground(
         return
     }
 
+    val blurIntensity = Settings.System.getIntForUser(
+        context.contentResolver,
+        Settings.System.BLUR_INTENSITY,
+        100,
+        UserHandle.USER_CURRENT
+    ).coerceIn(0, 200)
+
+    val baseBlurRadiusPx = if (blurRadiusPx >= 0f) {
+        blurRadiusPx
+    } else {
+        TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            25f,
+            context.resources.displayMetrics
+        )
+    }
+    val effectiveBlurRadiusPx = baseBlurRadiusPx * (blurIntensity / 100f)
+
     val applyBlur: () -> Unit = {
         val rootImpl = viewRootImpl
         if (rootImpl != null) {
             val blurDrawable = rootImpl.createBackgroundBlurDrawable()
             blurDrawable.setCornerRadius(cornerRadiusPx)
-            blurDrawable.setBlurRadius(blurRadiusPx.toInt())
+            blurDrawable.setBlurRadius(effectiveBlurRadiusPx.toInt())
 
             val tintDrawable = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE

@@ -200,6 +200,8 @@ internal fun MediaExpanded(
     event: IslandEvent.Media,
     interactor: IslandActions,
     modifier: Modifier = Modifier,
+    alphaProgress: Float = 1f,
+    isBlurSupported: Boolean = false,
 ) {
     PlatformTheme(isDarkTheme = true) {
         val colors = rememberMediaColors(event)
@@ -279,7 +281,11 @@ internal fun MediaExpanded(
                 MediaSeekBar(event, interactor, accent)
             }
             if (hasLyrics && model != null) {
-                LyricsCard(model = model)
+                LyricsCard(
+                    model = model,
+                    alphaProgress = alphaProgress,
+                    isBlurSupported = isBlurSupported,
+                )
             }
         }
     }

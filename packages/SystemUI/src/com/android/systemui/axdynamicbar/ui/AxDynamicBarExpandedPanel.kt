@@ -7,6 +7,8 @@ import android.view.MotionEvent
 import android.view.ViewTreeObserver
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -348,7 +350,9 @@ private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeight
             transformOrigin = origin,
         ),
     ) {
-        
+        val blurAlphaProgress by transition.animateFloat(label = "expanded_blur_alpha") {
+            if (it == EnterExitState.Visible) 1f else 0f
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -414,6 +418,7 @@ private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeight
                     onCollapse = { viewModel.statusBarExpansion.collapse() },
                     pinnedEventId = state.event.id,
                     hapticsViewModelFactory = viewModel.interactor.sliderHapticsViewModelFactory,
+                    alphaProgress = blurAlphaProgress,
                   ) 
                 }
             }
@@ -433,6 +438,9 @@ private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeight
             transformOrigin = origin,
         ),
     ) {
+        val blurAlphaProgress by transition.animateFloat(label = "notification_blur_alpha") {
+            if (it == EnterExitState.Visible) 1f else 0f
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -450,6 +458,7 @@ private fun OverlayContent(viewModel: AxDynamicBarChipViewModel, statusBarHeight
                         Modifier.widthIn(max = ExpandedMaxWidth)
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
+                    alphaProgress = blurAlphaProgress,
                 )
             }
         }

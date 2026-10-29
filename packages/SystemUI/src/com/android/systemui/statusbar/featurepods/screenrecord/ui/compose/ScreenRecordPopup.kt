@@ -39,6 +39,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import com.android.systemui.common.ui.compose.rememberIsBlurSupported
+import com.android.systemui.common.ui.compose.translucentBlurBackground
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.featurepods.popups.ui.compose.rememberElapsedDurationText
 import com.android.systemui.statusbar.featurepods.screenrecord.shared.model.ScreenRecordPopupModel
@@ -50,14 +52,29 @@ private val PopupShape = RoundedCornerShape(32.dp)
 fun ScreenRecordPopup(
     model: ScreenRecordPopupModel,
     modifier: Modifier = Modifier,
+    alphaProgress: Float = 1f,
+    isBlurSupported: Boolean = rememberIsBlurSupported(),
 ) {
     val accent = Color(0xFFFF5A5F)
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color =
+            if (isBlurSupported) Color.Transparent
+            else MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = MaterialTheme.colorScheme.onSurface,
         shape = PopupShape,
-        shadowElevation = 12.dp,
-        modifier = modifier.widthIn(min = 280.dp, max = 360.dp),
+        shadowElevation = if (isBlurSupported) 0.dp else 12.dp,
+        modifier =
+            modifier.widthIn(min = 280.dp, max = 360.dp).then(
+                if (isBlurSupported) {
+                    Modifier.translucentBlurBackground(
+                        cornerRadius = 32.dp,
+                        isBlurSupported = true,
+                        alphaProgress = alphaProgress,
+                    )
+                } else {
+                    Modifier
+                }
+            ),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),

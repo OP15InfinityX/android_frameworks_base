@@ -102,6 +102,8 @@ import com.android.systemui.axdynamicbar.shared.chipAccentColorFor
 import com.android.systemui.axdynamicbar.shared.chipContentColorOn
 import com.android.systemui.axdynamicbar.shared.sendWithBal
 import com.android.systemui.axdynamicbar.shared.toScaledBitmap
+import com.android.systemui.common.ui.compose.rememberIsBlurSupported
+import com.android.systemui.common.ui.compose.translucentBlurBackground
 import com.android.systemui.res.R
 
 private const val MAX_COLLAPSED_ACTIONS = 2
@@ -178,6 +180,8 @@ fun NotificationAlertCard(
     onDismiss: () -> Unit,
     initiallyCompact: Boolean = false,
     modifier: Modifier = Modifier,
+    alphaProgress: Float = 1f,
+    isBlurSupported: Boolean = rememberIsBlurSupported(),
 ) {
     val extras = notification.sbn.notification?.extras
     val isCall = extras?.let {
@@ -236,7 +240,18 @@ fun NotificationAlertCard(
                     )
                 }
                 .clip(ShapeCard)
-                .background(CardBg)
+                .then(
+                    if (isBlurSupported) {
+                        Modifier.translucentBlurBackground(
+                            cornerRadius = 28.dp,
+                            isBlurSupported = true,
+                            alphaProgress = alphaProgress,
+                            opaqueColor = CardBg,
+                        )
+                    } else {
+                        Modifier.background(CardBg)
+                    }
+                )
                 .border(1.dp, CardBorderBrush, ShapeCard),
         ) {
             SceneTransitionLayout(state = stlState) {

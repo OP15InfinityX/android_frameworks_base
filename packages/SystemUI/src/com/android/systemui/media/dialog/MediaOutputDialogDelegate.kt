@@ -388,9 +388,10 @@ constructor(
             isBlurSupported = isBlurSupported,
             fallbackBackgroundColor = backgroundColor,
         )
-        if (isBlurSupported) {
-            mDeviceListLayout.setBackgroundColor(Color.TRANSPARENT)
-        }
+        mDeviceListLayout.setBackgroundColor(
+            if (isBlurSupported) Color.TRANSPARENT else backgroundColor
+        )
+        mAdapter.setBlurSupported(isBlurSupported)
     }
 
     private fun updateDialogBackgroundColor() {
@@ -400,10 +401,12 @@ constructor(
 
         if (isBlurSupported) {
             mDeviceListLayout.setBackgroundColor(Color.TRANSPARENT)
+            mAdapter.setBlurSupported(true)
         } else {
             val backgroundColor = mMediaSwitchingController.getColorScheme().getSurfaceContainer()
             mDialogView.background?.setTint(backgroundColor)
             mDeviceListLayout.setBackgroundColor(backgroundColor)
+            mAdapter.setBlurSupported(false)
         }
     }
 

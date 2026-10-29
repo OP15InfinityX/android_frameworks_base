@@ -1824,11 +1824,16 @@ public class DisplayDeviceConfig {
     @Nullable
     public float[] getDozeBrightnessSensorValueToBrightness() {
         if (mContext != null) {
-            int customDozeBrightness = Settings.Secure.getIntForUser(
+            boolean customDozeBrightnessEnabled = Settings.Secure.getIntForUser(
+                    mContext.getContentResolver(),
+                    Settings.Secure.CUSTOM_DOZE_BRIGHTNESS,
+                    0,
+                    UserHandle.USER_CURRENT) != 0;
+            int customDozeBrightness = customDozeBrightnessEnabled ? Settings.Secure.getIntForUser(
                     mContext.getContentResolver(),
                     Settings.Secure.DOZE_BRIGHTNESS,
                     35,
-                    UserHandle.USER_CURRENT);
+                    UserHandle.USER_CURRENT) : -1;
             if (customDozeBrightness >= 0) {
                 return null;
             }
@@ -1842,11 +1847,16 @@ public class DisplayDeviceConfig {
      */
     public float getDefaultDozeBrightness() {
         if (mContext != null) {
-            int customDozeBrightness = Settings.Secure.getIntForUser(
+            boolean customDozeBrightnessEnabled = Settings.Secure.getIntForUser(
+                    mContext.getContentResolver(),
+                    Settings.Secure.CUSTOM_DOZE_BRIGHTNESS,
+                    0,
+                    UserHandle.USER_CURRENT) != 0;
+            int customDozeBrightness = customDozeBrightnessEnabled ? Settings.Secure.getIntForUser(
                     mContext.getContentResolver(),
                     Settings.Secure.DOZE_BRIGHTNESS,
                     35,
-                    UserHandle.USER_CURRENT);
+                    UserHandle.USER_CURRENT) : -1;
             if (customDozeBrightness >= 0) {
                 return customDozeBrightness / 100f;
             }

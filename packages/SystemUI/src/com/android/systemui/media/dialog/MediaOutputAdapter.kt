@@ -53,6 +53,14 @@ import com.google.android.material.slider.Slider
 class MediaOutputAdapter(controller: MediaSwitchingController) :
     MediaOutputAdapterBase(controller) {
 
+    private var mIsBlurSupported = false
+
+    fun setBlurSupported(isBlurSupported: Boolean) {
+        if (mIsBlurSupported == isBlurSupported) return
+        mIsBlurSupported = isBlurSupported
+        notifyDataSetChanged()
+    }
+
     /** Refreshes the RecyclerView dataset and forces re-render. */
     fun updateItems() {
         mMediaItemList.clear()
@@ -274,15 +282,10 @@ class MediaOutputAdapter(controller: MediaSwitchingController) :
         }
 
         private fun updateItemBackground() {
-            val isBlurSupported = runCatching {
-                CrossWindowBlurListeners.getInstance().isCrossWindowBlurEnabled
-            }.getOrDefault(false)
-
-            if (isBlurSupported) {
-                mItemLayout.setBackgroundColor(Color.TRANSPARENT)
-            } else {
-                mItemLayout.setBackgroundColor(mController.getColorScheme().getSurfaceContainer())
-            }
+            mItemLayout.setBackgroundColor(
+                if (mIsBlurSupported) android.graphics.Color.TRANSPARENT
+                else mController.getColorScheme().getSurfaceContainer()
+            )
         }
 
         private fun updateContentPadding(verticalPadding: Float) {
@@ -643,15 +646,10 @@ class MediaOutputAdapter(controller: MediaSwitchingController) :
             } else {
                 mTopSeparator.visibility = GONE
             }
-            val isBlurSupported = runCatching {
-                CrossWindowBlurListeners.getInstance().isCrossWindowBlurEnabled
-            }.getOrDefault(false)
-
-            if (isBlurSupported) {
-                mItemLayout.setBackgroundColor(Color.TRANSPARENT)
-            } else {
-                mItemLayout.setBackgroundColor(mController.getColorScheme().getSurfaceContainer())
-            }
+            mItemLayout.setBackgroundColor(
+                if (mIsBlurSupported) android.graphics.Color.TRANSPARENT
+                else mController.getColorScheme().getSurfaceContainer()
+            )
             updateExpandButton(isExpandableDivider)
         }
 

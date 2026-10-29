@@ -40,6 +40,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.DisposableHandle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** Binds the [NotificationScrollView], SceneContainer only. */
 @SysUISingleton
@@ -96,7 +97,9 @@ constructor(
             launch { viewModel.expandFraction.collectTraced { view.setExpandFraction(it) } }
             launch { viewModel.qsExpandFraction.collectTraced { view.setQsExpandFraction(it) } }
             if (Flags.notificationShadeBlur()) {
-                launch { viewModel.blurRadius.collect(view::setBlurRadius) }
+                launch {
+                    viewModel.blurRadius.distinctUntilChanged().collect(view::setBlurRadius)
+                }
             }
             if (Flags.notificationShadeBlur() || Flags.fixNsslBlockingQs()) {
                 launch { viewModel.interactive.collectTraced(view::setInteractive) }

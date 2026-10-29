@@ -1005,16 +1005,14 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
 
     private void attachCustomOverlays() {
         ViewGroup overlay = getRootViewContainer();
+        ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
 
         detachFromParent(mMediaViewController.getMediaArtScrim());
         detachFromParent(mPulseViewController.getPulseView());
         detachFromParent(mEdgeLightViewController.getEdgeLightView());
         detachFromParent(mChargingAnimationViewController.getChargingView());
 
-        overlay.addView(mMediaViewController.getMediaArtScrim(),
-                new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT));
+        attachMediaArt(root, overlay);
         overlay.addView(mPulseViewController.getPulseView(),
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1027,6 +1025,19 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
                 new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void attachMediaArt(ViewGroup root, ViewGroup fallbackContainer) {
+        View art = mMediaViewController.getMediaArtScrim();
+        FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT);
+        View panel = root.findViewById(R.id.notification_panel);
+        if (panel != null) {
+            root.addView(art, Math.max(root.indexOfChild(panel), 0), layoutParams);
+        } else {
+            fallbackContainer.addView(art, 0, layoutParams);
+        }
     }
 
     private static void detachFromParent(View v) {

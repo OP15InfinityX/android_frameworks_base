@@ -255,6 +255,9 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
                 Settings.System.getUriFor(AOD_PICKUP_BRIGHTNESS_BOOST), false,
                 mAodBrightnessObserver, UserHandle.USER_ALL);
         mContext.getContentResolver().registerContentObserver(
+                Settings.Secure.getUriFor(Settings.Secure.CUSTOM_DOZE_BRIGHTNESS), false,
+                mAodBrightnessObserver, UserHandle.USER_ALL);
+        mContext.getContentResolver().registerContentObserver(
                 Settings.Secure.getUriFor(Settings.Secure.DOZE_BRIGHTNESS), false,
                 mAodBrightnessObserver, UserHandle.USER_ALL);
     }
@@ -490,11 +493,16 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     }
 
     private float computeBrightness(int sensorValue) {
-        int customDozeBrightness = Settings.Secure.getIntForUser(
+        boolean customDozeBrightnessEnabled = Settings.Secure.getIntForUser(
+                mContext.getContentResolver(),
+                Settings.Secure.CUSTOM_DOZE_BRIGHTNESS,
+                0,
+                UserHandle.USER_CURRENT) != 0;
+        int customDozeBrightness = customDozeBrightnessEnabled ? Settings.Secure.getIntForUser(
                 mContext.getContentResolver(),
                 Settings.Secure.DOZE_BRIGHTNESS,
                 DEFAULT_CUSTOM_DOZE_BRIGHTNESS,
-                UserHandle.USER_CURRENT);
+                UserHandle.USER_CURRENT) : -1;
         if (customDozeBrightness >= 0 && mSensorToBrightness.length != 2) {
             return customDozeBrightness / 100f;
         }
@@ -543,9 +551,12 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     private void resetBrightnessToDefault() {
         float defaultDozeBrightness = mDisplayManager.getDefaultDozeBrightness(mContext.getDisplayId());
         if (mSensorToBrightness.length == 2) {
-            int customDozeBrightness = Settings.Secure.getIntForUser(
+            boolean customDozeBrightnessEnabled = Settings.Secure.getIntForUser(
+                    mContext.getContentResolver(), Settings.Secure.CUSTOM_DOZE_BRIGHTNESS,
+                    0, UserHandle.USER_CURRENT) != 0;
+            int customDozeBrightness = customDozeBrightnessEnabled ? Settings.Secure.getIntForUser(
                     mContext.getContentResolver(), Settings.Secure.DOZE_BRIGHTNESS,
-                    DEFAULT_CUSTOM_DOZE_BRIGHTNESS, UserHandle.USER_CURRENT);
+                    DEFAULT_CUSTOM_DOZE_BRIGHTNESS, UserHandle.USER_CURRENT) : -1;
             if (customDozeBrightness >= 0) {
                 defaultDozeBrightness = Math.max(0f, Math.min(1f,
                         defaultDozeBrightness * customDozeBrightness
@@ -559,11 +570,16 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     }
 
     private float clampToUserSetting(float brightness) {
-        int customDozeBrightness = Settings.Secure.getIntForUser(
+        boolean customDozeBrightnessEnabled = Settings.Secure.getIntForUser(
+                mContext.getContentResolver(),
+                Settings.Secure.CUSTOM_DOZE_BRIGHTNESS,
+                0,
+                UserHandle.USER_CURRENT) != 0;
+        int customDozeBrightness = customDozeBrightnessEnabled ? Settings.Secure.getIntForUser(
                 mContext.getContentResolver(),
                 Settings.Secure.DOZE_BRIGHTNESS,
                 DEFAULT_CUSTOM_DOZE_BRIGHTNESS,
-                UserHandle.USER_CURRENT);
+                UserHandle.USER_CURRENT) : -1;
         if (customDozeBrightness >= 0 && mSensorToBrightness.length != 2) {
             return customDozeBrightness / 100f;
         }
@@ -578,11 +594,16 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     }
 
     private float clampToUserSettingOrAutoBrightness(float brightness) {
-        int customDozeBrightness = Settings.Secure.getIntForUser(
+        boolean customDozeBrightnessEnabled = Settings.Secure.getIntForUser(
+                mContext.getContentResolver(),
+                Settings.Secure.CUSTOM_DOZE_BRIGHTNESS,
+                0,
+                UserHandle.USER_CURRENT) != 0;
+        int customDozeBrightness = customDozeBrightnessEnabled ? Settings.Secure.getIntForUser(
                 mContext.getContentResolver(),
                 Settings.Secure.DOZE_BRIGHTNESS,
                 DEFAULT_CUSTOM_DOZE_BRIGHTNESS,
-                UserHandle.USER_CURRENT);
+                UserHandle.USER_CURRENT) : -1;
         if (customDozeBrightness >= 0 && mSensorToBrightness.length != 2) {
             return customDozeBrightness / 100f;
         }

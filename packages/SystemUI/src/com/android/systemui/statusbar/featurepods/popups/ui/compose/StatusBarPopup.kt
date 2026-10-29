@@ -70,6 +70,7 @@ import com.android.systemui.axdynamicbar.ui.compose.TorchExpanded
 import com.android.systemui.axdynamicbar.ui.compose.PromotedOngoingExpanded
 import com.android.systemui.axdynamicbar.ui.compose.CallExpanded
 import com.android.systemui.common.shared.model.Icon
+import com.android.systemui.common.ui.compose.rememberIsBlurSupported
 import com.android.systemui.statusbar.quickactions.av.ui.compose.AvControlsChipPopup
 import com.android.systemui.statusbar.featurepods.popups.ui.model.PopupChipId
 import com.android.systemui.statusbar.featurepods.popups.ui.model.PopupChipModel
@@ -89,6 +90,7 @@ fun StatusBarPopup(
 ) {
     val context = LocalContext.current
     val density = Density(context)
+    val isBlurSupported = rememberIsBlurSupported()
     Popup(
         alignment = Alignment.TopCenter,
         properties =
@@ -383,7 +385,11 @@ fun StatusBarPopup(
                             }
                         }
                     }
-                    is PopupContentModel.ScreenRecord -> ScreenRecordPopup(model = popupContent.model)
+                    is PopupContentModel.ScreenRecord ->
+                        ScreenRecordPopup(
+                            model = popupContent.model,
+                            alphaProgress = alpha.value,
+                        )
                     is PopupContentModel.LiveScore -> {
                         val model = popupContent.model
                         val eventSports = remember(model) {
@@ -433,7 +439,10 @@ fun StatusBarPopup(
                     is PopupContentModel.PromotedOngoing -> {
                         val event = popupContent.event
                         Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
-                            PrimaryCard {
+                            PrimaryCard(
+                                alphaProgress = alpha.value,
+                                isBlurSupported = isBlurSupported,
+                            ) {
                                 PromotedOngoingExpanded(event = event, interactor = islandActions)
                             }
                         }
@@ -441,7 +450,10 @@ fun StatusBarPopup(
                     is PopupContentModel.OngoingCall -> {
                         val event = popupContent.event
                         Box(modifier = Modifier.widthIn(min = 320.dp, max = 400.dp)) {
-                            PrimaryCard {
+                            PrimaryCard(
+                                alphaProgress = alpha.value,
+                                isBlurSupported = isBlurSupported,
+                            ) {
                                 CallExpanded(event = event, interactor = islandActions)
                             }
                         }

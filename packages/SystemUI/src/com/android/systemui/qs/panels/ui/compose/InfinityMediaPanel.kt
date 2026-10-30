@@ -16,7 +16,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.android.systemui.statusbar.util.MediaSessionTrackHelper
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -80,6 +79,7 @@ import kotlinx.coroutines.launch
 
 private val MediaPanelShape = RoundedCornerShape(24.dp)
 private val MediaTrackBackground = Color.White.copy(alpha = 0.14f)
+private val TitleFontFamily = FontFamily(Font(DeviceFontFamilyName("variable-title-medium-emphasized")))
 
 private object InfinityMediaAppIconCache {
     private val icons = HashMap<String, Bitmap?>()
@@ -420,6 +420,12 @@ private fun InfinityMediaPanelContent(
         val pkg = mediaState.packageName ?: return@remember null
         InfinityMediaAppIconCache.get(context, pkg)
     }
+    val albumArtPainter = remember(mediaState.albumArt) {
+        mediaState.albumArt?.let { BitmapPainter(it.asImageBitmap()) }
+    }
+    val appIconPainter = remember(appIconBitmap) {
+        appIconBitmap?.let { BitmapPainter(it.asImageBitmap()) }
+    }
 
     val durationMs = mediaState.durationMs.coerceAtLeast(0L)
     val showInteractiveLayout = mediaState.controller != null
@@ -442,9 +448,9 @@ private fun InfinityMediaPanelContent(
                 launchMusicApp(context, mediaState.packageName)
             }
     ) {
-        mediaState.albumArt?.let { bmp ->
+        albumArtPainter?.let { painter ->
             Image(
-                painter = BitmapPainter(bmp.asImageBitmap()),
+                painter = painter,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -487,7 +493,7 @@ private fun InfinityMediaPanelContent(
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 12.sp,
                                 color = Color.White,
-                                fontFamily = FontFamily(Font(DeviceFontFamilyName("variable-title-medium-emphasized"))),
+                                fontFamily = TitleFontFamily,
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -505,13 +511,13 @@ private fun InfinityMediaPanelContent(
                         }
                     }
 
-                    if (appIconBitmap != null) {
+                    appIconPainter?.let { painter ->
                         Image(
-                            painter = BitmapPainter(appIconBitmap.asImageBitmap()),
+                            painter = painter,
                             contentDescription = "App Icon",
                             modifier = Modifier.size(26.dp),
                         )
-                    } else {
+                    } ?: run {
                         Icon(
                             imageVector = Icons.Filled.MusicNote,
                             contentDescription = "App Icon",
@@ -567,18 +573,12 @@ private fun InfinityMediaPanelContent(
                             },
                             modifier = Modifier.size(28.dp),
                         ) {
-                            Crossfade(
-                                targetState = mediaState.isPlaying,
-                                animationSpec = tween(200),
-                                label = "play_pause_crossfade",
-                            ) { playing ->
-                                Icon(
-                                    imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                    contentDescription = if (playing) "Pause" else "Play",
-                                    tint = Color.White.copy(alpha = if (mediaState.controller != null) 1f else 0.5f),
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
+                            Icon(
+                                imageVector = if (mediaState.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                contentDescription = if (mediaState.isPlaying) "Pause" else "Play",
+                                tint = Color.White.copy(alpha = if (mediaState.controller != null) 1f else 0.5f),
+                                modifier = Modifier.size(16.dp),
+                            )
                         }
 
                         IconButton(

@@ -123,6 +123,7 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
     private final int[] mSensorToWallpaperScrimOpacity;
     private final int[] mSensorToScrimOpacity;
     private final float mScreenBrightnessDim;
+    private final boolean mUseScreenBrightnessScrim;
 
     @DevicePostureController.DevicePostureInt
     private int mDevicePosture;
@@ -231,6 +232,8 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         mSensorToBrightness = sensorToBrightness;
         mSensorToScrimOpacity = alwaysOnDisplayPolicy.dimmingScrimArray;
         mSensorToWallpaperScrimOpacity = alwaysOnDisplayPolicy.wallpaperDimmingScrimArray;
+        mUseScreenBrightnessScrim = context.getResources().getBoolean(
+                com.android.systemui.res.R.bool.doze_use_screen_brightness_scrim);
 
         mDevicePostureController.addCallback(mDevicePostureCallback);
         mAodBrightnessObserver = new ContentObserver(mHandler) {
@@ -472,6 +475,9 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         if (sensorValue < 0 || sensorValue >= mSensorToScrimOpacity.length) {
             return -1;
         }
+        if (mUseScreenBrightnessScrim && mSensorToBrightness.length == 2) {
+            return computeBrightnessScrimOpacity(sensorValue);
+        }
         int wallpaperScrimOpacity = -1;
         if (!SceneContainerFlag.isEnabled()) {
             if (mWallpaperSupportsAmbientMode && sensorValue
@@ -480,6 +486,18 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
             }
         }
         return max(wallpaperScrimOpacity, mSensorToScrimOpacity[sensorValue]);
+    }
+
+    private int computeBrightnessScrimOpacity(int sensorValue) {
+        float brightness = computeBrightness(sensorValue);
+        if (brightness < 0) {
+            return -1;
+        }
+        // The panel has discrete AOD modes and discards ordinary backlight writes. Map the
+        // setting over the full visible range of the AOD front scrim instead. The square root
+        // keeps the low end of the control usable without making the minimum completely black.
+        float visible = (float) Math.sqrt(Math.max(1f / 255f, Math.min(1f, brightness)));
+        return Math.round(255f * (1f - visible));
     }
 
     private int computeWallpaperScrimOpacity(int sensorValue) {
@@ -565,7 +583,11 @@ public class DozeScreenBrightness extends BroadcastReceiver implements DozeMachi
         }
         mDozeService.setDozeScreenBrightness(clampToDimBrightnessForScreenOff(
                 clampToUserSettingOrAutoBrightness(defaultDozeBrightness)));
-        mDozeHost.setAodDimmingScrim(0f);
+        // Apply the low-light setting before the sensor delivers its first event. Otherwise
+        // the panel briefly shows undimmed AOD content during the screen-off transition.
+        int initialScrim = mUseScreenBrightnessScrim && mSensorToBrightness.length == 2
+                ? computeBrightnessScrimOpacity(0) : 0;
+        mDozeHost.setAodDimmingScrim(Math.max(0, initialScrim) / 255f);
         mDozeHost.setAodWallpaperDimmingScrim(0f);
     }
 

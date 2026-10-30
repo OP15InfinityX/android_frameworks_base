@@ -769,6 +769,7 @@ public final class PowerManagerService extends SystemService
 
     // True if double tap to wake is enabled
     private boolean mDoubleTapWakeEnabled;
+    private boolean mDoubleTapWakeSettingApplied;
 
     // True if we in the process of performing a forceSuspend
     private boolean mForceSuspendActive;
@@ -1817,8 +1818,10 @@ public final class PowerManagerService extends SystemService
             boolean doubleTapWakeEnabled = Settings.Secure.getIntForUser(resolver,
                     Settings.Secure.DOUBLE_TAP_TO_WAKE, DEFAULT_DOUBLE_TAP_TO_WAKE,
                             UserHandle.USER_CURRENT) != 0;
-            if (doubleTapWakeEnabled != mDoubleTapWakeEnabled) {
+            // Apply the saved value once even when it matches the cached default.
+            if (!mDoubleTapWakeSettingApplied || doubleTapWakeEnabled != mDoubleTapWakeEnabled) {
                 mDoubleTapWakeEnabled = doubleTapWakeEnabled;
+                mDoubleTapWakeSettingApplied = true;
                 mNativeWrapper.nativeSetPowerMode(Mode.DOUBLE_TAP_TO_WAKE, mDoubleTapWakeEnabled);
             }
         }

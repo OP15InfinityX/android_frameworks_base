@@ -261,11 +261,12 @@ public enum ScrimState {
             final boolean isDocked = mDockManager.isDocked();
             mBlankScreen = mDisplayRequiresBlanking;
 
-            mFrontTint = mBackgroundColor;
+            // AOD dimming must remain black regardless of the shade's theme/blur color.
+            mFrontTint = Color.BLACK;
             mFrontAlpha = (alwaysOnEnabled || isDocked || quickPickupEnabled)
                     ? mAodFrontScrimAlpha : 1f;
 
-            mBehindTint = mBackgroundColor;
+            mBehindTint = Color.BLACK;
             mBehindAlpha = ScrimController.TRANSPARENT;
 
             mAnimationDuration = ScrimController.ANIMATION_DURATION_LONG;
@@ -298,8 +299,9 @@ public enum ScrimState {
         @Override
         public void prepare(ScrimState previousState) {
             mFrontAlpha = mAodFrontScrimAlpha;
-            mBehindTint = mBackgroundColor;
-            mFrontTint = mBackgroundColor;
+            // Opaque black also prevents theme-color blending while dimming a pulse.
+            mBehindTint = Color.BLACK;
+            mFrontTint = Color.BLACK;
             mBlankScreen = mDisplayRequiresBlanking;
             mAnimationDuration = mWakeLockScreenSensorActive
                     ? ScrimController.ANIMATION_DURATION_LONG : ScrimController.ANIMATION_DURATION;

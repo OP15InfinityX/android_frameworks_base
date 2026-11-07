@@ -196,6 +196,7 @@
   <string-array name="window_animation_scale_entries">
     <item msgid="2675263395797191850">"அனிமேஷனை முடக்கு"</item>
     <item msgid="5790132543372767872">"அனிமேஷன் வேகம் .5x"</item>
+    <item>"அனிமேஷன் வேகம் 0.75x"</item>
     <item msgid="2529692189302148746">"அனிமேஷன் வேகம் 1x"</item>
     <item msgid="8072785072237082286">"அனிமேஷன் வேகம் 1.5x"</item>
     <item msgid="3531560925718232560">"அனிமேஷன் வேகம் 2x"</item>
@@ -205,6 +206,7 @@
   <string-array name="transition_animation_scale_entries">
     <item msgid="3376676813923486384">"அனிமேஷனை முடக்கு"</item>
     <item msgid="753422683600269114">"அனிமேஷன் வேகம் .5x"</item>
+    <item>"அனிமேஷன் வேகம் 0.75x"</item>
     <item msgid="3695427132155563489">"அனிமேஷன் வேகம் 1x"</item>
     <item msgid="9032615844198098981">"அனிமேஷன் வேகம் 1.5x"</item>
     <item msgid="8473868962499332073">"அனிமேஷன் வேகம் 2x"</item>
@@ -214,6 +216,7 @@
   <string-array name="animator_duration_scale_entries">
     <item msgid="6416998593844817378">"அனிமேஷனை முடக்கு"</item>
     <item msgid="875345630014338616">"அனிமேஷன் வேகம் .5x"</item>
+    <item>"அனிமேஷன் வேகம் 0.75x"</item>
     <item msgid="2753729231187104962">"அனிமேஷன் வேகம் 1x"</item>
     <item msgid="1368370459723665338">"அனிமேஷன் வேகம் 1.5x"</item>
     <item msgid="5768005350534383389">"அனிமேஷன் வேகம் 2x"</item>

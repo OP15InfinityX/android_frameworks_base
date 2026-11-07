@@ -196,6 +196,7 @@
   <string-array name="window_animation_scale_entries">
     <item msgid="2675263395797191850">"Animación desactivada"</item>
     <item msgid="5790132543372767872">"Escala de animación 0.5x"</item>
+    <item>"Escala de animación 0.75x"</item>
     <item msgid="2529692189302148746">"Escala de animación 1x"</item>
     <item msgid="8072785072237082286">"Escala de animación 1.5x"</item>
     <item msgid="3531560925718232560">"Escala de animación 2x"</item>
@@ -205,6 +206,7 @@
   <string-array name="transition_animation_scale_entries">
     <item msgid="3376676813923486384">"Animación desactivada"</item>
     <item msgid="753422683600269114">"Escala de animación .5x"</item>
+    <item>"Escala de animación 0.75x"</item>
     <item msgid="3695427132155563489">"Escala de animación 1x"</item>
     <item msgid="9032615844198098981">"Escala de animación 1.5x"</item>
     <item msgid="8473868962499332073">"Escala de animación 2x"</item>
@@ -214,6 +216,7 @@
   <string-array name="animator_duration_scale_entries">
     <item msgid="6416998593844817378">"Animación desactivada"</item>
     <item msgid="875345630014338616">"Escala de animación .5x"</item>
+    <item>"Escala de animación 0.75x"</item>
     <item msgid="2753729231187104962">"Escala de animación 1x"</item>
     <item msgid="1368370459723665338">"Escala de animación 1.5x"</item>
     <item msgid="5768005350534383389">"Escala de animación 2x"</item>

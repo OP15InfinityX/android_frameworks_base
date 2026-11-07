@@ -123,6 +123,7 @@ public class KeyguardStatusBarViewController extends ViewController<KeyguardStat
             "system:" + Settings.System.STATUSBAR_EXTRA_PADDING_TOP;
     private static final String STATUSBAR_EXTRA_PADDING_END =
             "system:" + Settings.System.STATUSBAR_EXTRA_PADDING_END;
+    private static final String LOCKSCREEN_HIDE_STATUS_BAR = "lockscreen_hide_status_bar";
 
     private static final String TAG = "KeyguardStatusBarViewController";
     private static final AnimationProperties KEYGUARD_HUN_PROPERTIES =
@@ -173,6 +174,7 @@ public class KeyguardStatusBarViewController extends ViewController<KeyguardStat
     private final KeyguardInteractor mKeyguardInteractor;
     private final TunerService mTunerService;
     private final AxDynamicBarChipViewModel mAxDynamicBarChipViewModel;
+    private boolean mHideStatusBar;
 
     @Nullable private ComposeView mBatteryComposeView;
     private ViewGroup mSystemIconsContainer;
@@ -521,6 +523,7 @@ public class KeyguardStatusBarViewController extends ViewController<KeyguardStat
         mTunerService.addTunable(this, STATUSBAR_EXTRA_PADDING_START);
         mTunerService.addTunable(this, STATUSBAR_EXTRA_PADDING_TOP);
         mTunerService.addTunable(this, STATUSBAR_EXTRA_PADDING_END);
+        mTunerService.addTunable(this, LOCKSCREEN_HIDE_STATUS_BAR);
         updateUserSwitcher();
         onThemeChanged();
         if (!Flags.glanceableHubV2()) {
@@ -606,6 +609,10 @@ public class KeyguardStatusBarViewController extends ViewController<KeyguardStat
     @Override
     public void onTuningChanged(String key, String newValue) {
         switch (key) {
+            case LOCKSCREEN_HIDE_STATUS_BAR:
+                mHideStatusBar = TunerService.parseIntegerSwitch(newValue, false);
+                updateViewState();
+                break;
             case STATUSBAR_EXTRA_PADDING_START:
             case STATUSBAR_EXTRA_PADDING_TOP:
             case STATUSBAR_EXTRA_PADDING_END:
@@ -662,7 +669,7 @@ public class KeyguardStatusBarViewController extends ViewController<KeyguardStat
         }
 
         mLogger.log(TAG, LogLevel.DEBUG, "animating status bar in");
-        if (mDisableStateTracker.isDisabled()) {
+        if (mDisableStateTracker.isDisabled() || mHideStatusBar) {
             // If our view is disabled, don't allow us to animate in.
             return;
         }
@@ -757,7 +764,7 @@ public class KeyguardStatusBarViewController extends ViewController<KeyguardStat
             return;
         }
 
-        if (mDisableStateTracker.isDisabled()) {
+        if (mDisableStateTracker.isDisabled() || mHideStatusBar) {
             visibility = View.INVISIBLE;
         }
         mView.setAlpha(alpha);

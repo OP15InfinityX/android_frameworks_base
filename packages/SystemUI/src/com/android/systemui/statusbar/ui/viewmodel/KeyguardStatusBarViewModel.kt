@@ -26,6 +26,7 @@ import com.android.systemui.scene.domain.interactor.SceneInteractor
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.shared.model.Scenes
 import com.android.systemui.shade.domain.interactor.ShadeStatusBarComponentsInteractor
+import com.android.systemui.shared.settings.data.repository.SecureSettingsRepository
 import com.android.systemui.statusbar.domain.interactor.KeyguardStatusBarInteractor
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.Idle
@@ -64,6 +65,7 @@ constructor(
     keyguardStatusBarInteractor: KeyguardStatusBarInteractor,
     shadeStatusBarComponentsInteractor: ShadeStatusBarComponentsInteractor,
     darkIconInteractor: ShadeDarkIconInteractor,
+    secureSettingsRepository: SecureSettingsRepository,
     val statusBarIconBlockListInteractor: HomeStatusBarIconBlockListInteractor,
 ) : HydratedActivatable(enableEnqueuedActivations = true) {
     /** True if this view should be visible and false otherwise. */
@@ -73,13 +75,15 @@ constructor(
                 sceneInteractor.currentScene,
                 sceneInteractor.currentOverlays,
                 keyguardInteractor.isDozing,
-            ) { useDesktopStatusBar, currentScene, currentOverlays, isDozing ->
+                secureSettingsRepository.boolSetting("lockscreen_hide_status_bar", false),
+            ) { useDesktopStatusBar, currentScene, currentOverlays, isDozing, hideStatusBar ->
                 !useDesktopStatusBar &&
                     (currentScene == Scenes.Lockscreen || currentScene == Scenes.Communal) &&
                     Overlays.NotificationsShade !in currentOverlays &&
                     Overlays.QuickSettingsShade !in currentOverlays &&
                     Overlays.Bouncer !in currentOverlays &&
-                    !isDozing
+                    !isDozing &&
+                    !hideStatusBar
             }
             .stateIn(scope, SharingStarted.WhileSubscribed(), false)
 

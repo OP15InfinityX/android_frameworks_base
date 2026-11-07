@@ -833,7 +833,8 @@ public class IdleManager {
 
     private void loadConfigFromSettings() {
         ContentResolver cr = mContext.getContentResolver();
-        mEnabled = Settings.Secure.getInt(cr, Settings.Secure.IDLE_MANAGER, 1) == 1;
+        mEnabled = Settings.Secure.getInt(cr, Settings.Secure.IDLE_MANAGER, 1) == 1
+                && Settings.Secure.getInt(cr, Settings.Secure.AGGRESSIVE_STANDBY_SLEEP, 0) == 0;
 
         int restorePending = Settings.Secure.getInt(
                 cr, Settings.Secure.IDLE_MANAGER_RESTORE_PENDING, 0);
@@ -862,11 +863,15 @@ public class IdleManager {
             public void onChange(boolean selfChange, @Nullable Uri uri) {
                 Log.d(TAG, "Settings changed — refreshing config");
                 loadConfigFromSettings();
+                if (!mEnabled) {
+                    haltManager();
+                }
             }
         };
         for (String key : new String[]{
                 Settings.Secure.IDLE_MANAGER,
-                Settings.Secure.IDLE_MANAGER_APPS}) {
+                Settings.Secure.IDLE_MANAGER_APPS,
+                Settings.Secure.AGGRESSIVE_STANDBY_SLEEP}) {
             cr.registerContentObserver(
                     Settings.Secure.getUriFor(key), false, mSettingsObserver);
         }

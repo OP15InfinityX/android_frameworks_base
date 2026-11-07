@@ -23,18 +23,14 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -49,19 +45,28 @@ fun AudioReactiveBars(
     spacing: Dp = 2.dp,
     startPadding: Dp = 0.dp,
 ) {
+    val totalWidth = startPadding + (barWidth * 5) + (spacing * 4)
+
     if (!isPlaying) {
-        Row(
-            modifier = modifier.padding(start = startPadding),
-            horizontalArrangement = Arrangement.spacedBy(spacing),
-            verticalAlignment = Alignment.CenterVertically,
+        Canvas(
+            modifier = modifier.size(width = totalWidth, height = maxBarHeight)
         ) {
+            val barWidthPx = barWidth.toPx()
+            val maxBarHeightPx = maxBarHeight.toPx()
+            val spacingPx = spacing.toPx()
+            val startPaddingPx = startPadding.toPx()
+            val cornerRadius = CornerRadius(barWidthPx / 2f, barWidthPx / 2f)
             val staticHeights = floatArrayOf(0.3f, 0.5f, 0.7f, 0.5f, 0.3f)
-            repeat(5) { index ->
-                Box(
-                    modifier = Modifier
-                        .size(width = barWidth, height = maxBarHeight * staticHeights[index])
-                        .clip(RoundedCornerShape(100))
-                        .background(color)
+
+            for (i in 0 until 5) {
+                val barHeight = maxBarHeightPx * staticHeights[i]
+                val x = startPaddingPx + i * (barWidthPx + spacingPx)
+                val y = (maxBarHeightPx - barHeight) / 2f
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(x, y),
+                    size = Size(barWidthPx, barHeight),
+                    cornerRadius = cornerRadius
                 )
             }
         }
@@ -120,25 +125,31 @@ fun AudioReactiveBars(
         label = "bar5"
     )
 
-    val heights = listOf(
-        bar1HeightMultiplier,
-        bar2HeightMultiplier,
-        bar3HeightMultiplier,
-        bar4HeightMultiplier,
-        bar5HeightMultiplier
-    )
-
-    Row(
-        modifier = modifier.padding(start = startPadding),
-        horizontalArrangement = Arrangement.spacedBy(spacing),
-        verticalAlignment = Alignment.CenterVertically,
+    Canvas(
+        modifier = modifier.size(width = totalWidth, height = maxBarHeight)
     ) {
-        repeat(5) { index ->
-            Box(
-                modifier = Modifier
-                    .size(width = barWidth, height = maxBarHeight * heights[index])
-                    .clip(RoundedCornerShape(100))
-                    .background(color)
+        val barWidthPx = barWidth.toPx()
+        val maxBarHeightPx = maxBarHeight.toPx()
+        val spacingPx = spacing.toPx()
+        val startPaddingPx = startPadding.toPx()
+        val cornerRadius = CornerRadius(barWidthPx / 2f, barWidthPx / 2f)
+
+        for (i in 0 until 5) {
+            val multiplier = when (i) {
+                0 -> bar1HeightMultiplier
+                1 -> bar2HeightMultiplier
+                2 -> bar3HeightMultiplier
+                3 -> bar4HeightMultiplier
+                else -> bar5HeightMultiplier
+            }
+            val barHeight = maxBarHeightPx * multiplier
+            val x = startPaddingPx + i * (barWidthPx + spacingPx)
+            val y = (maxBarHeightPx - barHeight) / 2f
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(x, y),
+                size = Size(barWidthPx, barHeight),
+                cornerRadius = cornerRadius
             )
         }
     }

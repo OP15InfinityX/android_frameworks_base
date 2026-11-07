@@ -466,11 +466,15 @@ private fun MediaSeekBar(
                     if (bar.progress != target) {
                         bar.progress = target
                     }
-                    bar.setWaveformColor(accentArgb)
-                    bar.setThumbColor(accentArgb)
-                    when {
-                        isPlaying && !bar.isPlaying -> bar.startWaveAnimation()
-                        !isPlaying && bar.isPlaying -> bar.stopWaveAnimation()
+                    val style = accentArgb to isPlaying
+                    if (bar.tag != style) {
+                        bar.setWaveformColor(accentArgb)
+                        bar.setThumbColor(accentArgb)
+                        when {
+                            isPlaying && !bar.isPlaying -> bar.startWaveAnimation()
+                            !isPlaying && bar.isPlaying -> bar.stopWaveAnimation()
+                        }
+                        bar.tag = style
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(SeekBarHeight),

@@ -37,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -58,6 +59,7 @@ public final class CertificateGenerator {
     private static final String TAG = "CertificateGenerator";
     private static final int MAX_ATTESTATION_CHALLENGE_SIZE = 128;
     private static final BouncyCastleProvider BC_PROVIDER = new BouncyCastleProvider();
+    private static final SecureRandom SERIAL_RANDOM = new SecureRandom();
 
     public static final ASN1ObjectIdentifier ATTESTATION_OID =
         new ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.17");
@@ -184,7 +186,7 @@ public final class CertificateGenerator {
             int uid) throws Exception {
 
         BigInteger serial = params.certificateSerial != null ?
-            params.certificateSerial : BigInteger.ONE;
+            params.certificateSerial : generateRandomSerial();
         Date notBefore = params.certificateNotBefore != null ?
             params.certificateNotBefore : new Date();
         Date notAfter = params.certificateNotAfter != null ?
@@ -233,6 +235,16 @@ public final class CertificateGenerator {
             new ByteArrayInputStream(holder.getEncoded()));
         result.verify(((X509Certificate) keybox.certificates.get(0)).getPublicKey());
         return result;
+    }
+
+    /**
+     * Returns a fresh random positive serial for a generated leaf certificate.
+     * KeyMint issues a random serial per key; a fixed serial shared by every
+     * generated leaf would be a trivial cross-certificate fingerprint.
+     */
+    private static BigInteger generateRandomSerial() {
+        // Uniform 63-bit positive (odd) value, well within X.509 serial limits.
+        return new BigInteger(63, SERIAL_RANDOM).setBit(0);
     }
 
     private static Extension buildAttestExtension(KeyGenParameters params, int securityLevel, int uid) {
@@ -306,8 +318,15 @@ public final class CertificateGenerator {
             tee.put(718, new ASN1Integer(patchLevels[1]));
             tee.put(719, new ASN1Integer(patchLevels[2]));
 
+            final int attestVersion = AttestationUtils.getAttestVersion();
             java.util.TreeMap<Integer, ASN1Encodable> sw = new java.util.TreeMap<>();
             sw.put(701, new ASN1Integer(System.currentTimeMillis()));
+            if (attestVersion >= 400) {
+                byte[] moduleHash = AttestationUtils.getModuleHash();
+                if (moduleHash != null) {
+                    sw.put(724, new DEROctetString(moduleHash));
+                }
+            }
             try {
                 sw.put(709, createApplicationId(uid, params.packages));
             } catch (Throwable e) {
@@ -315,7 +334,7 @@ public final class CertificateGenerator {
             }
 
             ASN1Encodable[] keyDescriptionElements = new ASN1Encodable[] {
-                new ASN1Integer(AttestationUtils.getAttestVersion()),
+                new ASN1Integer(attestVersion),
                 new ASN1Enumerated(securityLevel),
                 new ASN1Integer(AttestationUtils.getKeymasterVersion()),
                 new ASN1Enumerated(securityLevel),

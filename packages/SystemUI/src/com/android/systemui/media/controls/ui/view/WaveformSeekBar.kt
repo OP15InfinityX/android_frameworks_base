@@ -80,6 +80,17 @@ class WaveformSeekBar @JvmOverloads constructor(
     private var fadeAnimator: ValueAnimator? = null
     var isPlaying = false
         private set
+
+    private var pointsX = FloatArray(512)
+    private var pointsY = FloatArray(512)
+
+    private fun ensurePointsCapacity(capacity: Int) {
+        if (pointsX.size < capacity) {
+            val newSize = maxOf(pointsX.size * 2, capacity)
+            pointsX = FloatArray(newSize)
+            pointsY = FloatArray(newSize)
+        }
+    }
     
     init {
         thumb = TransparentDrawable()
@@ -280,39 +291,72 @@ class WaveformSeekBar @JvmOverloads constructor(
         if (endX <= startX) return
         
         val step = 2f * density
-        val points = mutableListOf<Pair<Float, Float>>()
-        
+        val estimatedCount = ((endX - startX) / step).toInt() + 4
+        ensurePointsCapacity(estimatedCount)
+
+        var count = 0
         var x = startX
         while (x <= endX) {
-            val y = calculateWaveY(x, startX, endX, trackTop, progressLengthFactor)
-            points.add(Pair(x, y))
+            pointsX[count] = x
+            pointsY[count] = calculateWaveY(x, startX, endX, trackTop, progressLengthFactor)
+            count++
             x += step
         }
         
-        if (points.isEmpty() || points.last().first < endX) {
-            val y = calculateWaveY(endX, startX, endX, trackTop, progressLengthFactor)
-            points.add(Pair(endX, y))
+        if (count == 0 || pointsX[count - 1] < endX) {
+            pointsX[count] = endX
+            pointsY[count] = calculateWaveY(endX, startX, endX, trackTop, progressLengthFactor)
+            count++
         }
         
-        if (points.size < 2) {
+        if (count < 2) {
             progressPath.lineTo(endX, trackTop)
             return
         }
         
-        for (i in 0 until points.size - 1) {
-            val p0 = if (i > 0) points[i - 1] else points[i]
-            val p1 = points[i]
-            val p2 = points[i + 1]
-            val p3 = if (i + 2 < points.size) points[i + 2] else points[i + 1]
+        val tension = 0.5f
+        for (i in 0 until count - 1) {
+            val p0x = if (i > 0) pointsX[i - 1] else pointsX[i]
+            val p0y = if (i > 0) pointsY[i - 1] else pointsY[i]
+            val p1x = pointsX[i]
+            val p1y = pointsY[i]
+            val p2x = pointsX[i + 1]
+            val p2y = pointsY[i + 1]
+            val p3x = if (i + 2 < count) pointsX[i + 2] else pointsX[i + 1]
+            val p3y = if (i + 2 < count) pointsY[i + 2] else pointsY[i + 1]
             
-            val tension = 0.5f
+            val cp1x = p1x + (p2x - p0x) * tension / 3f
+            val cp1y = p1y + (p2y - p0y) * tension / 3f
+            val cp2x = p2x - (p3x - p1x) * tension / 3f
+            val cp2y = p2y - (p3y - p1y) * tension / 3f
             
-            val cp1x = p1.first + (p2.first - p0.first) * tension / 3f
-            val cp1y = p1.second + (p2.second - p0.second) * tension / 3f
-            val cp2x = p2.first - (p3.first - p1.first) * tension / 3f
-            val cp2y = p2.second - (p3.second - p1.second) * tension / 3f
-            
-            progressPath.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.first, p2.second)
+            progressPath.cubicTo(cp1x, cp1y, cp2x, cp2y, p2x, p2y)
+        }
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        if (visibility != VISIBLE) {
+            waveAnimator?.pause()
+        } else if (isPlaying) {
+            if (waveAnimator?.isPaused == true) {
+                waveAnimator?.resume()
+            } else if (waveAnimator?.isRunning != true) {
+                startWaveAnimation()
+            }
+        }
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        if (!isVisible) {
+            waveAnimator?.pause()
+        } else if (isPlaying) {
+            if (waveAnimator?.isPaused == true) {
+                waveAnimator?.resume()
+            } else if (waveAnimator?.isRunning != true) {
+                startWaveAnimation()
+            }
         }
     }
 

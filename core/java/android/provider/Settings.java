@@ -15027,6 +15027,12 @@ public final class Settings {
         public static final String IDLE_MANAGER_RESTORE_PENDING = "idle_manager_restore_pending";
 
         /**
+         * Aggressive standby sleep.
+         * @hide
+         */
+        public static final String AGGRESSIVE_STANDBY_SLEEP = "aggressive_standby_sleep";
+
+        /**
          * Timeout length for clipboard auto clear
          * @hide
          */
@@ -15138,6 +15144,12 @@ public final class Settings {
          * @hide
          */
         public static final String LOCK_SCREEN_CUSTOM_CLOCK_AOD_ANIM = "lock_screen_custom_clock_aod_anim";
+
+        /**
+         * Whether to enable dark theme on battery saver mode
+         * @hide
+         */
+        public static final String BATTERY_SAVER_DARK_THEME = "battery_saver_dark_theme";
 
         /**
          * Keys we no longer back up under the current schema, but want to continue to
@@ -15882,6 +15894,9 @@ public final class Settings {
          * @hide
          */
         public static final String SPOOF_TRICKYSTORE_KEYBOX = "spoof_trickystore_keybox";
+
+        /** @hide */
+        public static final String SPOOF_DUCK_RKP_ENABLED = "spoof_duck_rkp_enabled";
 
         /**
          * @hide

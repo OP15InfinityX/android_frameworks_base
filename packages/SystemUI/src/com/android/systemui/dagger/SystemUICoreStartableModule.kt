@@ -36,6 +36,7 @@ import com.android.systemui.dreams.DreamMonitor
 import com.android.systemui.dreams.DreamOverlayRegistrant
 import com.android.systemui.dreams.homecontrols.system.HomeControlsDreamStartable
 import com.android.systemui.globalactions.GlobalActionsComponent
+import com.android.systemui.infinity.AggressiveStandbySleepManager
 import com.android.systemui.haptics.msdl.MSDLCoreStartable
 import com.android.systemui.keyboard.KeyboardUI
 import com.android.systemui.keyboard.PhysicalKeyboardCoreStartable
@@ -86,6 +87,13 @@ import com.axion.applocker.AxAppLockerHelper
 @Deprecated("Do not add things to this file.")
 @Module()
 abstract class SystemUICoreStartableModule {
+    @Binds
+    @IntoMap
+    @ClassKey(AggressiveStandbySleepManager::class)
+    abstract fun bindAggressiveStandbySleepManager(
+        manager: AggressiveStandbySleepManager
+    ): CoreStartable
+
     /** Inject into BiometricNotificationService */
     @Binds
     @IntoMap

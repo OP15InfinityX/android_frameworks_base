@@ -229,7 +229,8 @@ fun StatusBarDynamicIslandChip(
         // Right element (Animation, Duration, Status Text, or SwipeHint)
         when (val popupContent = viewModel.popupContent) {
             is PopupContentModel.Media -> {
-                if (popupContent.model.isPlaying) {
+                val shouldAnimate = popupContent.model.isPlaying && animatedAlpha > 0.01f
+                if (shouldAnimate) {
                     AudioReactiveBars(
                         isPlaying = true,
                         color = chipContentColor,

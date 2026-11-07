@@ -366,6 +366,7 @@ private fun AnimatedTrophyIcon(color: Color) {
         animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "trophy_shimmer",
     )
+    val cupPath = remember { Path() }
 
     Canvas(modifier = Modifier.size(SizeBadge)) {
         val w = size.width
@@ -378,13 +379,12 @@ private fun AnimatedTrophyIcon(color: Color) {
         val cupBot = h * 0.58f
         val cupLeft = w * 0.25f
         val cupRight = w * 0.75f
-        val cupPath = Path().apply {
-            moveTo(cupLeft, cupTop)
-            lineTo(cupRight, cupTop)
-            lineTo(cupRight - w * 0.05f, cupBot)
-            quadraticBezierTo(cx, cupBot + h * 0.08f, cupLeft + w * 0.05f, cupBot)
-            close()
-        }
+        cupPath.rewind()
+        cupPath.moveTo(cupLeft, cupTop)
+        cupPath.lineTo(cupRight, cupTop)
+        cupPath.lineTo(cupRight - w * 0.05f, cupBot)
+        cupPath.quadraticBezierTo(cx, cupBot + h * 0.08f, cupLeft + w * 0.05f, cupBot)
+        cupPath.close()
         drawPath(cupPath, shimColor, style = Stroke(sw, cap = StrokeCap.Round))
 
         val handleY = cupTop + (cupBot - cupTop) * 0.35f
@@ -1209,13 +1209,7 @@ internal fun PillEventText(
         is IslandEvent.Vpn -> MarqueeLabel(stringResource(R.string.ax_dynamic_bar_vpn_active), overrideColor ?: IndigoAccent, modifier)
         is IslandEvent.Clipboard ->
             MarqueeLabel(event.preview.ifEmpty { stringResource(R.string.ax_dynamic_bar_copied) }, overrideColor ?: IndigoAccent, modifier)
-        is IslandEvent.Call -> {
-            if (event.callStartTimeMs > 0L) {
-                CallTimerText(event, modifier, overrideColor)
-            } else {
-                NotifBellBadge(modifier, notifCount)
-            }
-        }
+        is IslandEvent.Call -> CallTimerText(event, modifier, overrideColor)
         is IslandEvent.Notification -> {
             val name = event.title
             if (name != null) {
@@ -1264,10 +1258,11 @@ private fun AospChipText(event: IslandEvent.AospChip, modifier: Modifier, overri
 
 @Composable
 private fun AospChipTimerText(content: OngoingActivityChipModel.Content.Timer, color: Color, modifier: Modifier) {
+    val formatter = remember(content.format) { content.format.toFormatter() }
     val text =
         rememberChronometerText(
             chronometer = content.value,
-            formatter = content.format.toFormatter(),
+            formatter = formatter,
             timeSource = content.timeSource,
         )
     if (text != null) ChronometerLabel(text, color, modifier)
@@ -1455,7 +1450,7 @@ private fun StopwatchText(event: IslandEvent.Stopwatch, modifier: Modifier, over
 @Composable
 private fun CallTimerText(event: IslandEvent.Call, modifier: Modifier, overrideColor: Color? = null) {
     val isActive = event.callType == "Phone:active"
-    if (isActive) {
+    if (isActive && event.callStartTimeMs > 0L) {
         val text =
             rememberChronometerText(
                 Chronometer.Running(eventTimeFor(event.callStartTimeMs), isCountdown = false)
@@ -1463,7 +1458,11 @@ private fun CallTimerText(event: IslandEvent.Call, modifier: Modifier, overrideC
         val color = overrideColor ?: GreenAccent
         ChronometerLabel(text ?: "00:00", color, modifier)
     } else {
-        MarqueeLabel(stringResource(R.string.ax_dynamic_bar_incoming_call), overrideColor ?: BlueAccent, modifier)
+        MarqueeLabel(
+            stringResource(if (isActive) R.string.ax_dynamic_bar_call else R.string.ax_dynamic_bar_incoming_call),
+            overrideColor ?: if (isActive) GreenAccent else BlueAccent,
+            modifier,
+        )
     }
 }
 

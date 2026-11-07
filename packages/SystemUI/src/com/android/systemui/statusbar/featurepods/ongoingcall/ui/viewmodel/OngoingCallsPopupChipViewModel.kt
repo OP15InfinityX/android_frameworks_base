@@ -95,11 +95,15 @@ constructor(
             contentDescription = ContentDescription.Loaded(event.callerName ?: "Call")
         )
 
-        val elapsedMs = currentTime - event.callStartTimeMs
-        val elapsedSecs = (elapsedMs / 1000).coerceAtLeast(0)
-        val mins = elapsedSecs / 60
-        val secs = elapsedSecs % 60
-        val durationText = String.format("%d:%02d", mins, secs)
+        val durationText = if (event.callStartTimeMs > 0L) {
+            val elapsedMs = currentTime - event.callStartTimeMs
+            val elapsedSecs = (elapsedMs / 1000).coerceAtLeast(0)
+            val mins = elapsedSecs / 60
+            val secs = elapsedSecs % 60
+            String.format("%d:%02d", mins, secs)
+        } else {
+            null
+        }
 
         return PopupChipModel.Shown(
             chipId = PopupChipId.OngoingCall,

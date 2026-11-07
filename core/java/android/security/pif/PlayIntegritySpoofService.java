@@ -432,10 +432,35 @@ public final class PlayIntegritySpoofService {
         };
         for (int i = 0; i < keys.length && i < parts.size(); i++) {
             String val = parts.get(i);
-            if (!val.isEmpty()) {
-                mBuildFields.put(keys[i], val);
+            if (val.isEmpty()) continue;
+            // A Canary fingerprint carries the literal "CANARY" where the Android
+            // release goes, which no app can read as a version. Keep a numeric
+            // release (ROM's own) instead.
+            if ("RELEASE".equals(keys[i])) {
+                val = releaseFromFingerprint(fingerprint);
+                if (val == null) continue;
+            }
+            mBuildFields.put(keys[i], val);
+        }
+    }
+
+    /**
+     * Android release to report for a fingerprint (brand/product/device:release/id/...).
+     * A Canary fingerprint carries the literal "CANARY" where the release goes, which no
+     * app can read as a version, so that case takes this ROM's own release instead. Null
+     * when there is neither.
+     */
+    private static String releaseFromFingerprint(String fingerprint) {
+        if (fingerprint != null) {
+            final int colon = fingerprint.indexOf(':');
+            final int slash = colon < 0 ? -1 : fingerprint.indexOf('/', colon + 1);
+            if (slash > colon + 1) {
+                final String release = fingerprint.substring(colon + 1, slash);
+                if (!"CANARY".equalsIgnoreCase(release)) return release;
             }
         }
+        final String own = Build.VERSION.RELEASE;
+        return (own == null || own.isEmpty()) ? null : own;
     }
     private static String resolveDeviceInitialSdk(String device, String configuredSdk) {
         if (configuredSdk != null && !configuredSdk.isEmpty()) {
@@ -463,12 +488,12 @@ public final class PlayIntegritySpoofService {
                 case "comet":
                     return "34";
                 case "tegu":
-                case "stallion":
                     return "35";
                 case "frankel":
                 case "blazer":
                 case "mustang":
                 case "rango":
+                case "stallion":
                     return "36";
                 case "cubs":
                 case "grizzly":
@@ -595,11 +620,11 @@ public final class PlayIntegritySpoofService {
 
         props.putIfAbsent("init.svc.adbd", "stopped");
         props.putIfAbsent("sys.usb.state", "mtp");
-        props.putIfAbsent("ro.board.first_api_level", "32");
 
         String initialSdk = resolveDeviceInitialSdk(
                 mBuildFields.get("DEVICE"), mDeviceInitialSdkInt);
         if (initialSdk != null && !initialSdk.isEmpty()) {
+            props.putIfAbsent("ro.board.first_api_level", initialSdk);
             props.putIfAbsent("ro.product.first_api_level", initialSdk);
         }
         putPropIfPresent(props, "ro.build.fingerprint", mBuildFields.get("FINGERPRINT"));

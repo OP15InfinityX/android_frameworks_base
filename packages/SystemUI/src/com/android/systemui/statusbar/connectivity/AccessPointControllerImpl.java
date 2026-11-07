@@ -172,7 +172,7 @@ public class AccessPointControllerImpl implements AccessPointController,
             fireAccessPointsCallback(Collections.emptyList());
             return;
         }
-        List<WifiEntry> entries = mWifiPickerTracker.getWifiEntries();
+        List<WifiEntry> entries = new ArrayList<>(mWifiPickerTracker.getWifiEntries());
         WifiEntry connectedEntry = mWifiPickerTracker.getConnectedWifiEntry();
         if (connectedEntry != null) {
             entries.add(0, connectedEntry);

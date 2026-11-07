@@ -107,6 +107,7 @@ import com.android.systemui.media.controls.ui.controller.MediaHierarchyManager
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.android.keyguard.AlphaOptimizedLinearLayout
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
+import com.android.systemui.shade.domain.interactor.ShadeInteractor
 import com.android.systemui.statusbar.featurepods.popups.ui.model.PopupChipId
 import com.android.systemui.statusbar.layout.ui.viewmodel.AppHandlesViewModel
 import com.android.systemui.statusbar.notification.icon.ui.viewbinder.ConnectedDisplaysStatusBarNotificationIconViewStore
@@ -162,6 +163,7 @@ constructor(
     private val shadeWindowRootView: WindowRootView,
     private val axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
     private val mediaHierarchyManager: MediaHierarchyManager,
+    private val shadeInteractor: ShadeInteractor,
 ) {
     fun create(root: ViewGroup, andThen: (ViewGroup) -> Unit): ComposeView {
         val composeView = ComposeView(root.context)
@@ -187,6 +189,7 @@ constructor(
                             statusBarRegionSamplingViewModelFactory,
                         axDynamicBarChipViewModel = axDynamicBarChipViewModel,
                         mediaHierarchyManager = mediaHierarchyManager,
+                        shadeInteractor = shadeInteractor,
                         onViewCreated = andThen,
                         modifier = Modifier.sysUiResTagContainer(),
                     )
@@ -227,10 +230,12 @@ fun StatusBarRoot(
     statusBarRegionSamplingViewModelFactory: StatusBarRegionSamplingViewModel.Factory,
     axDynamicBarChipViewModel: AxDynamicBarChipViewModel,
     mediaHierarchyManager: MediaHierarchyManager,
+    shadeInteractor: ShadeInteractor,
     onViewCreated: (ViewGroup) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val displayId = parent.context.displayId
+    val isShadeExpanded by shadeInteractor.isAnyExpanded.collectAsState()
     val statusBarViewModel =
         rememberViewModel("HomeStatusBar") { statusBarViewModelFactory.create() }
     val iconViewStore: NotificationIconContainerViewBinder.IconViewStore =
@@ -317,6 +322,8 @@ fun StatusBarRoot(
 
                 val composeView =
                     ComposeView(context).apply {
+                        clipChildren = false
+                        clipToPadding = false
                         layoutParams =
                             LinearLayout.LayoutParams(
                                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -337,6 +344,7 @@ fun StatusBarRoot(
                         setContent {
                             StatusBarDynamicIslandContainer(
                                 chips = statusBarViewModel.dynamicIslandChips,
+                                isShadeExpanded = isShadeExpanded,
                                 onMediaControlPopupVisibilityChanged = { popupShowing ->
                                     mediaHierarchyManager.isMediaControlPopupShowing =
                                         popupShowing

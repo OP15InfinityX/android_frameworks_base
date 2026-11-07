@@ -2450,7 +2450,9 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
 
             DejankUtils.stopDetectingBlockingIpcs(tag);
             if (Settings.Secure.getInt(mContext.getContentResolver(),
-                    Settings.Secure.IDLE_MANAGER, 1) == 1) {
+                    Settings.Secure.IDLE_MANAGER, 1) == 1
+                    && Settings.Secure.getInt(mContext.getContentResolver(),
+                    Settings.Secure.AGGRESSIVE_STANDBY_SLEEP, 0) == 0) {
                 IdleManager.initManager(mContext);
                 IdleManager mgr = IdleManager.getInstance();
                 if (mgr != null && !mgr.isRunning()) {

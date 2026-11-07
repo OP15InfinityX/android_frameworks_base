@@ -121,11 +121,15 @@ public class KeyguardStatusBarView extends RelativeLayout {
 
     public KeyguardStatusBarView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        setClipChildren(false);
+        setClipToPadding(false);
     }
 
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
+        setClipChildren(false);
+        setClipToPadding(false);
         mSystemIconsContainer = findViewById(R.id.system_icons_container);
         mSystemIcons = findViewById(R.id.system_icons);
         mMultiUserAvatar = findViewById(R.id.multi_user_avatar);
@@ -349,6 +353,8 @@ public class KeyguardStatusBarView extends RelativeLayout {
                 ? Math.max(mMinDotWidth, mPadding.right) : mPadding.right;
 
         int top = waterfallTop + mPadding.top;
+        setClipToPadding(false);
+        setClipChildren(false);
         setPadding(minLeft, top, minRight, 0);
     }
 

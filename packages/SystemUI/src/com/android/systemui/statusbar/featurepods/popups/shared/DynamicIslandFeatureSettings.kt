@@ -52,6 +52,7 @@ object DynamicIslandFeatureSettings {
 
     const val COMPACT_WIDTH = "status_bar_dynamic_island_width"
     const val COMPACT_HEIGHT = "status_bar_dynamic_island_height"
+    const val HORIZONTAL_OFFSET = "status_bar_dynamic_island_x_percent"
     const val VERTICAL_OFFSET = "status_bar_dynamic_island_vertical_offset"
 
     fun ContentResolver.readDynamicIslandWidth(
@@ -69,6 +70,9 @@ object DynamicIslandFeatureSettings {
         context: Context,
         defaultValue: Int = 100,
     ): Flow<Int> = observeIntSetting(context, COMPACT_WIDTH, defaultValue, 80, 160)
+
+    fun observeDynamicIslandHorizontalOffset(context: Context): Flow<Int> =
+        observeIntSetting(context, HORIZONTAL_OFFSET, 200, 0, 400)
 
     fun observeDynamicIslandHeight(context: Context): Flow<Int> =
         observeIntSetting(context, COMPACT_HEIGHT, 41, 34, 45)

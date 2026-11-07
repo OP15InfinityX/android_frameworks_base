@@ -60,10 +60,16 @@ import kotlin.math.abs
 @Composable
 fun StatusBarDynamicIslandContainer(
     chips: List<PopupChipModel.Shown>,
+    isShadeExpanded: Boolean,
     onMediaControlPopupVisibilityChanged: (Boolean) -> Unit,
     onVerticalOffsetChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (isShadeExpanded) {
+        onMediaControlPopupVisibilityChanged(false)
+        return
+    }
+
     val cutoutSpec = rememberDynamicIslandCutoutSpec()
     var selectedChipId by remember { mutableStateOf<PopupChipId?>(null) }
     var popupAnchorChip by remember { mutableStateOf<PopupChipModel.Shown?>(null) }
@@ -94,6 +100,7 @@ fun StatusBarDynamicIslandContainer(
     val context = LocalContext.current
     var customCompactWidth by remember { androidx.compose.runtime.mutableIntStateOf(100) }
     var customCompactHeight by remember { androidx.compose.runtime.mutableIntStateOf(41) }
+    var customHorizontalOffsetPercent by remember { androidx.compose.runtime.mutableIntStateOf(200) }
 
     LaunchedEffect(context) {
         com.android.systemui.statusbar.featurepods.popups.shared.DynamicIslandFeatureSettings
@@ -113,6 +120,12 @@ fun StatusBarDynamicIslandContainer(
         com.android.systemui.statusbar.featurepods.popups.shared.DynamicIslandFeatureSettings
             .observeDynamicIslandVerticalOffset(context)
             .collect { offsetPx -> onVerticalOffsetChanged(offsetPx) }
+    }
+
+    LaunchedEffect(context) {
+        com.android.systemui.statusbar.featurepods.popups.shared.DynamicIslandFeatureSettings
+            .observeDynamicIslandHorizontalOffset(context)
+            .collect { offset -> customHorizontalOffsetPercent = offset }
     }
 
     // Preserve the last active chip during the exit collapse animation
@@ -190,7 +203,7 @@ fun StatusBarDynamicIslandContainer(
         modifier =
             modifier
                 .padding(horizontal = 8.dp)
-                .offset(x = cutoutSpec.horizontalOffset)
+                .offset(x = cutoutSpec.horizontalOffset + (customHorizontalOffsetPercent - 200).dp)
                 .width(overallWidth)
                 .graphicsLayer {
                     alpha = overallAlpha

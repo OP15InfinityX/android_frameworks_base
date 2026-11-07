@@ -102,6 +102,8 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
 
     public PhoneStatusBarView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        setClipChildren(false);
+        setClipToPadding(false);
         mCommandQueue = Dependency.get(CommandQueue.class);
 
         // Only create FRB here if there is no navbar
@@ -189,6 +191,8 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
     @Override
     public void onFinishInflate() {
         super.onFinishInflate();
+        setClipChildren(false);
+        setClipToPadding(false);
         mCutoutSpace = findViewById(R.id.cutout_space_view);
 
         updateResources();
@@ -490,6 +494,8 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
         }
 
         Insets insets = mInsetsFetcher.fetchInsets();
+        setClipToPadding(false);
+        setClipChildren(false);
         setPadding(
                 insets.left,
                 insets.top,
@@ -499,8 +505,13 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
         // Apply negative paddings to centered area layout so that we'll actually be on the center.
         Display display = getDisplay();
         final int winRotation = display != null ? display.getRotation() : Surface.ROTATION_0;
+        View centeredArea = findViewById(R.id.centered_area);
+        if (centeredArea instanceof ViewGroup) {
+            ((ViewGroup) centeredArea).setClipToPadding(false);
+            ((ViewGroup) centeredArea).setClipChildren(false);
+        }
         LayoutParams centeredAreaParams =
-                (LayoutParams) findViewById(R.id.centered_area).getLayoutParams();
+                (LayoutParams) centeredArea.getLayoutParams();
         centeredAreaParams.leftMargin =
                 winRotation == Surface.ROTATION_0 ? -insets.left : 0;
         centeredAreaParams.rightMargin =

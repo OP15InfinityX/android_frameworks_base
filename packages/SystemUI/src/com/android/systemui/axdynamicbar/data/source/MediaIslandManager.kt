@@ -13,6 +13,7 @@ import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.SystemClock
 import android.util.Log
+import android.util.LruCache
 import com.android.systemui.axdynamicbar.model.IslandEvent
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
@@ -53,6 +54,8 @@ constructor(
     @Volatile private var sessionAlbumArt: Drawable? = null
     @Volatile private var sessionAppIcon: Drawable? = null
 
+    private val customActionIconCache = LruCache<String, Drawable>(16)
+
     private val trackHelper: MediaSessionTrackHelper by lazy {
         MediaSessionTrackHelper.getInstance(context)
     }
@@ -83,6 +86,7 @@ constructor(
         }
 
         override fun onAppIconChanged(drawable: Drawable) {
+            if (sessionAppIcon === drawable) return
             sessionAppIcon = drawable
             val current = _mediaEvent.value ?: return
             _mediaEvent.value = current.copy(appIcon = drawable)
@@ -135,12 +139,17 @@ constructor(
                     ca.name?.toString()?.takeIf { it.isNotEmpty() }
                         ?: return@mapNotNull null
                 val act = ca.action?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-                val icon = try {
-                    if (ca.icon != 0) {
-                        DrawableIcon.createWithResource(pkg, ca.icon)
-                            .loadDrawable(context)
+                val icon =
+                    if (ca.icon != 0 && pkg != null) {
+                        val key = "$pkg:${ca.icon}"
+                        customActionIconCache.get(key)
+                            ?: try {
+                                DrawableIcon.createWithResource(pkg, ca.icon).loadDrawable(context)
+                                    ?.also { customActionIconCache.put(key, it) }
+                            } catch (_: Exception) {
+                                null
+                            }
                     } else null
-                } catch (_: Exception) { null }
                 IslandEvent.MediaCustomAction(label = lbl, action = act, icon = icon)
             } ?: emptyList()
         val appIcon = sessionAppIcon ?: try {
@@ -256,6 +265,7 @@ constructor(
         sessionMediaColor = 0
         sessionAlbumArt = null
         sessionAppIcon = null
+        customActionIconCache.evictAll()
     }
 
     fun clear() {

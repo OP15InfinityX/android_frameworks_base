@@ -291,42 +291,48 @@ internal fun SbnRemoteViewContent(sbn: StatusBarNotification, fallback: @Composa
 
     if (!remoteViewFailed) {
         AndroidView(
-            factory = { factoryCtx ->
-                FrameLayout(factoryCtx).apply {
-                    try {
-                        val rv = resolveRemoteViews(factoryCtx, sbn)
-                        val inflated = rv?.apply(factoryCtx, this)
-                        if (inflated != null) {
-                            addView(
-                                inflated,
-                                FrameLayout.LayoutParams(
-                                    FrameLayout.LayoutParams.MATCH_PARENT,
-                                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                                ),
-                            )
-                        } else {
-                            remoteViewFailed = true
-                        }
-                    } catch (_: Exception) {
-                        remoteViewFailed = true
-                    }
-                }
-            },
+            factory = { factoryCtx -> FrameLayout(factoryCtx) },
             update = { container ->
+                val notification = sbn.notification
+                if (notification == null) {
+                    if (container.childCount == 0) remoteViewFailed = true
+                    return@AndroidView
+                }
+                if (container.tag === notification && container.childCount > 0) {
+                    return@AndroidView
+                }
                 try {
-                    container.removeAllViews()
                     val rv = resolveRemoteViews(container.context, sbn)
-                    val inflated = rv?.apply(container.context, container)
-                    if (inflated != null) {
-                        container.addView(
-                            inflated,
-                            FrameLayout.LayoutParams(
-                                FrameLayout.LayoutParams.MATCH_PARENT,
-                                FrameLayout.LayoutParams.WRAP_CONTENT,
-                            ),
-                        )
+                    if (rv == null) {
+                        if (container.childCount == 0) remoteViewFailed = true
+                        return@AndroidView
                     }
-                } catch (_: Exception) {}
+                    val existing = if (container.childCount > 0) container.getChildAt(0) else null
+                    if (existing != null) {
+                        try {
+                            rv.reapply(container.context, existing)
+                            container.tag = notification
+                            return@AndroidView
+                        } catch (_: Exception) {
+                            container.removeAllViews()
+                        }
+                    }
+                    val inflated = rv.apply(container.context, container)
+                    if (inflated == null) {
+                        if (container.childCount == 0) remoteViewFailed = true
+                        return@AndroidView
+                    }
+                    container.addView(
+                        inflated,
+                        FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            FrameLayout.LayoutParams.WRAP_CONTENT,
+                        ),
+                    )
+                    container.tag = notification
+                } catch (_: Exception) {
+                    if (container.childCount == 0) remoteViewFailed = true
+                }
             },
             modifier = Modifier.fillMaxWidth().clip(ShapeIconMedium),
         )
@@ -385,6 +391,7 @@ private fun NotificationReplyField(
     eventId: String,
 ) {
     var replyText by remember { mutableStateOf("") }
+    val lastFocused = remember { booleanArrayOf(false) }
 
     Row(
         modifier =
@@ -399,6 +406,8 @@ private fun NotificationReplyField(
             onValueChange = { replyText = it },
             modifier =
                 Modifier.weight(1f).padding(horizontal = SpaceLg).onFocusChanged { focusState ->
+                    if (focusState.isFocused == lastFocused[0]) return@onFocusChanged
+                    lastFocused[0] = focusState.isFocused
                     interactor.onFocusableRequested?.invoke(focusState.isFocused)
                     if (focusState.isFocused) {
                         interactor.onNotificationInteraction(eventId)

@@ -22,6 +22,7 @@ import com.android.systemui.desktop.domain.interactor.desktopInteractor
 import com.android.systemui.keyguard.domain.interactor.keyguardInteractor
 import com.android.systemui.keyguard.domain.interactor.keyguardTransitionInteractor
 import com.android.systemui.kosmos.Kosmos
+import com.android.systemui.shared.settings.data.repository.secureSettingsRepository
 import com.android.systemui.kosmos.backgroundScope
 import com.android.systemui.kosmos.testDispatcher
 import com.android.systemui.log.logBufferFactory
@@ -113,6 +114,7 @@ var Kosmos.homeStatusBarViewModelFactory: (Int) -> HomeStatusBarViewModel by
                 deviceProvisioningInteractor = deviceProvisioningInteractor,
                 userLogoutInteractor = userLogoutInteractor,
                 scrollToTopInteractor = scrollToTopInteractor,
+                secureSettingsRepository = secureSettingsRepository,
             )
         }
     }

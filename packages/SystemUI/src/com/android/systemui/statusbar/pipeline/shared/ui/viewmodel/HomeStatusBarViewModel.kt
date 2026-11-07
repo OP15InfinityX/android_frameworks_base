@@ -79,8 +79,11 @@ import com.android.systemui.statusbar.pipeline.shared.domain.interactor.HomeStat
 import com.android.systemui.statusbar.pipeline.shared.domain.interactor.HomeStatusBarInteractor
 import com.android.systemui.statusbar.pipeline.shared.domain.interactor.StatusBarVisibilityInteractor
 import com.android.systemui.statusbar.pipeline.shared.ui.model.ChipsVisibilityModel
+import com.android.systemui.statusbar.pipeline.shared.ui.model.HomeStatusBarVisibilityInput
 import com.android.systemui.statusbar.pipeline.shared.ui.model.SystemInfoCombinedVisibilityModel
 import com.android.systemui.statusbar.pipeline.shared.ui.model.VisibilityModel
+import com.android.systemui.statusbar.pipeline.shared.ui.model.withoutHiddenKeyguardRevealAnimation
+import com.android.systemui.shared.settings.data.repository.SecureSettingsRepository
 import com.android.systemui.statusbar.policy.domain.interactor.DeviceProvisioningInteractor
 import com.android.systemui.statusbar.quickactions.ime.domain.interactor.ImeIndicatorChipInteractor
 import com.android.systemui.statusbar.quickactions.popups.StatusBarPopupChips
@@ -316,6 +319,7 @@ constructor(
     private val userLogoutInteractor: UserLogoutInteractor,
     private val scrollToTopInteractor: ScrollToTopInteractor,
     private val headsUpNotificationInteractor: HeadsUpNotificationInteractor,
+    secureSettingsRepository: SecureSettingsRepository,
 ) : HomeStatusBarViewModel, HydratedActivatable(enableEnqueuedActivations = true) {
 
     val logger = loggerFactory.getOrCreate(logBufferName(thisDisplayId), 60)
@@ -576,15 +580,26 @@ constructor(
             it is TopPinnedState.Pinned
         }
 
+    private val hideLockscreenStatusBar =
+        secureSettingsRepository.boolSetting("lockscreen_hide_status_bar", false)
+
     override val isClockVisible: Flow<VisibilityModel> =
         combine(
                 statusBarVisibilityInteractor.shouldHomeStatusBarBeVisible,
                 homeStatusBarInteractor.visibilityViaDisableFlags,
-            ) { shouldStatusBarBeVisible, visibilityViaDisableFlags ->
+                keyguardInteractor.isKeyguardVisible,
+                hideLockscreenStatusBar,
+            ) { shouldStatusBarBeVisible, visibilityViaDisableFlags, isKeyguardVisible, hideBar ->
                 val showClock = shouldStatusBarBeVisible && visibilityViaDisableFlags.isClockAllowed
                 // Always use View.GONE here, so that we do not get stray spaces
-                VisibilityModel(showClock.toVisibleOrGone(), visibilityViaDisableFlags.animate)
+                HomeStatusBarVisibilityInput(
+                    VisibilityModel(showClock.toVisibleOrGone(), visibilityViaDisableFlags.animate),
+                    shouldStatusBarBeVisible,
+                    isKeyguardVisible,
+                    hideBar,
+                )
             }
+            .withoutHiddenKeyguardRevealAnimation()
             .distinctUntilChanged()
             .logDiffsForTable(
                 tableLogBuffer = tableLogger,
@@ -598,7 +613,10 @@ constructor(
                 statusBarVisibilityInteractor.shouldHomeStatusBarBeVisible,
                 isAnyChipVisible,
                 homeStatusBarInteractor.visibilityViaDisableFlags,
-            ) { shouldStatusBarBeVisible, anyChipVisible, visibilityViaDisableFlags ->
+                keyguardInteractor.isKeyguardVisible,
+                hideLockscreenStatusBar,
+            ) { shouldStatusBarBeVisible, anyChipVisible, visibilityViaDisableFlags,
+                isKeyguardVisible, hideBar ->
                 val showNotificationIconContainer =
                     if (anyChipVisible) {
                         false
@@ -606,11 +624,17 @@ constructor(
                         shouldStatusBarBeVisible &&
                             visibilityViaDisableFlags.areNotificationIconsAllowed
                     }
-                VisibilityModel(
-                    showNotificationIconContainer.toVisibleOrGone(),
-                    visibilityViaDisableFlags.animate,
+                HomeStatusBarVisibilityInput(
+                    VisibilityModel(
+                        showNotificationIconContainer.toVisibleOrGone(),
+                        visibilityViaDisableFlags.animate,
+                    ),
+                    shouldStatusBarBeVisible,
+                    isKeyguardVisible,
+                    hideBar,
                 )
             }
+            .withoutHiddenKeyguardRevealAnimation()
             .distinctUntilChanged()
             .logDiffsForTable(
                 tableLogBuffer = tableLogger,
@@ -623,11 +647,18 @@ constructor(
         combine(
             statusBarVisibilityInteractor.shouldHomeStatusBarBeVisible,
             homeStatusBarInteractor.visibilityViaDisableFlags,
-        ) { shouldStatusBarBeVisible, visibilityViaDisableFlags ->
+            keyguardInteractor.isKeyguardVisible,
+            hideLockscreenStatusBar,
+        ) { shouldStatusBarBeVisible, visibilityViaDisableFlags, isKeyguardVisible, hideBar ->
             val showSystemInfo =
                 shouldStatusBarBeVisible && visibilityViaDisableFlags.isSystemInfoAllowed
-            VisibilityModel(showSystemInfo.toVisibleOrGone(), visibilityViaDisableFlags.animate)
-        }
+            HomeStatusBarVisibilityInput(
+                VisibilityModel(showSystemInfo.toVisibleOrGone(), visibilityViaDisableFlags.animate),
+                shouldStatusBarBeVisible,
+                isKeyguardVisible,
+                hideBar,
+            )
+        }.withoutHiddenKeyguardRevealAnimation()
 
     override val systemInfoCombinedVis =
         combine(isSystemInfoVisible, animations.animationState) { sysInfoVisible, animationState ->

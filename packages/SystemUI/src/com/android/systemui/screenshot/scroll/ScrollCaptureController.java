@@ -51,7 +51,7 @@ import javax.inject.Inject;
  */
 public class ScrollCaptureController {
     private static final String TAG = LogConfig.logTag(ScrollCaptureController.class);
-    private static final float MAX_PAGES_DEFAULT = 3f;
+    private static final float MAX_PAGES_DEFAULT = 5.5f;
 
     private static final String SETTING_KEY_MAX_PAGES = "screenshot.scroll_max_pages";
     // Portion of the tiles to be acquired above the starting position in infinite scroll

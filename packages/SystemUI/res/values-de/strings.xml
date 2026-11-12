@@ -1893,4 +1893,8 @@
     <string name="ace_attribution_settings_button_accessibility_description" msgid="8426163772933746374">"Button „Einstellungen“"</string>
     <string name="ace_attribution_thumbs_up_button_accessibility_description" msgid="3561722934830934360">"Button „Mag ich“"</string>
     <string name="ace_attribution_thumbs_down_button_accessibility_description" msgid="5471283747650437662">"Button „Mag ich nicht“"</string>
+    <string name="aod_media_previous">Vorheriger Titel</string>
+    <string name="aod_media_play">Wiedergabe</string>
+    <string name="aod_media_pause">Pause</string>
+    <string name="aod_media_next">Nächster Titel</string>
 </resources>

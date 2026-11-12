@@ -157,7 +157,10 @@ public class DozeMachine {
                 case DOZE_AOD_MINMODE:
                     return Display.STATE_ON;
                 case DOZE_AOD:
+                    // Normal touch coordinates are unavailable in the panel's low-power mode.
+                    // Keep Android dozing, but use an active display only for opt-in media controls.
                     return parameters.isScreenOffPeekActive()
+                            || parameters.isAodMediaControlsActive()
                             ? Display.STATE_ON : Display.STATE_DOZE_SUSPEND;
                 case DOZE_AOD_PAUSING:
                     return Display.STATE_DOZE_SUSPEND;

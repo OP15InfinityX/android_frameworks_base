@@ -63,6 +63,7 @@ import com.android.systemui.util.settings.SecureSettings;
 
 import java.io.PrintWriter;
 import java.util.Optional;
+import java.util.LinkedHashSet;
 import java.util.concurrent.Executor;
 
 import javax.inject.Inject;
@@ -101,6 +102,8 @@ public class DozeParameters implements
     private boolean mControlScreenOffAnimation;
     private boolean mIsQuickPickupEnabled;
     private boolean mScreenOffPeekActive;
+    private boolean mAodMediaControlsActive;
+    private final LinkedHashSet<Runnable> mAodMediaControlsCallbacks = new LinkedHashSet<>();
 
     private boolean mKeyguardVisible;
     @VisibleForTesting
@@ -345,6 +348,27 @@ public class DozeParameters implements
         return mScreenOffPeekActive;
     }
 
+    /** Only visible, explicitly enabled media controls request interactive AOD. Main thread. */
+    public void setAodMediaControlsActive(boolean active) {
+        if (mAodMediaControlsActive == active) return;
+        mAodMediaControlsActive = active;
+        for (Runnable callback : mAodMediaControlsCallbacks.toArray(new Runnable[0])) {
+            callback.run();
+        }
+    }
+
+    public boolean isAodMediaControlsActive() {
+        return mAodMediaControlsActive;
+    }
+
+    public void addAodMediaControlsCallback(Runnable callback) {
+        mAodMediaControlsCallbacks.add(callback);
+    }
+
+    public void removeAodMediaControlsCallback(Runnable callback) {
+        mAodMediaControlsCallbacks.remove(callback);
+    }
+
     private boolean shouldUseScreenOffAnimationAod() {
         return (mAmbientDisplayConfiguration.screenOffAodEnabled(mUserTracker.getUserId())
                 && !mBatteryController.isAodPowerSave())
@@ -557,6 +581,7 @@ public class DozeParameters implements
         pw.println(getSelectivelyRegisterSensorsUsingProx());
         pw.print("isQuickPickupEnabled(): "); pw.println(isQuickPickupEnabled());
         pw.print("isMinModeActive(): "); pw.println(isMinModeActive());
+        pw.print("isAodMediaControlsActive(): "); pw.println(isAodMediaControlsActive());
     }
 
     private void dispatchAlwaysOnEvent() {

@@ -65,6 +65,16 @@ public interface DozeHost {
      */
     void onSlpiTap(float x, float y);
 
+    /** Whether the host still requests dozing (guards asynchronous display updates on wake). */
+    default boolean isDozing() {
+        return false;
+    }
+
+    /** Returns true when an optional AOD media button consumes this proximity-checked tap. */
+    default boolean onAodMediaTap(float x, float y) {
+        return false;
+    }
+
     /**
      * Artificially dim down the display by changing scrim opacities.
      * @param scrimOpacity opacity from 0 to 1.

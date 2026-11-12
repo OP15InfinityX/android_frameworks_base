@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="264dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:visibility="gone">
+
+    <TextView
+        android:id="@+id/aod_media_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:textSize="17sp"
+        android:textColor="#ffffffff"
+        android:gravity="center"
+        android:textDirection="locale"
+        android:singleLine="true"
+        android:ellipsize="end" />
+    <TextView
+        android:id="@+id/aod_media_artist"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:fontFamily="sans-serif"
+        android:textSize="14sp"
+        android:textColor="#b3ffffff"
+        android:gravity="center"
+        android:textDirection="locale"
+        android:singleLine="true"
+        android:ellipsize="end" />
+
+    <LinearLayout
+        android:id="@+id/aod_media_transport_row"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <ImageButton
+            android:id="@+id/aod_media_previous"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:padding="14dp"
+            android:background="@null"
+            android:src="@drawable/ic_aod_media_previous"
+            android:tint="#ffffffff"
+            android:contentDescription="@string/aod_media_previous" />
+
+        <ImageButton
+            android:id="@+id/aod_media_play_pause"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_marginStart="8dp"
+            android:padding="14dp"
+            android:background="@drawable/aod_media_play_background"
+            android:src="@drawable/ic_aod_media_play"
+            android:tint="#ffffffff"
+            android:contentDescription="@string/aod_media_play" />
+
+        <ImageButton
+            android:id="@+id/aod_media_next"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_marginStart="8dp"
+            android:padding="14dp"
+            android:background="@null"
+            android:src="@drawable/ic_aod_media_next"
+            android:tint="#ffffffff"
+            android:contentDescription="@string/aod_media_next" />
+    </LinearLayout>
+</LinearLayout>

@@ -5098,4 +5098,8 @@
     <!-- Accessibility label for the thumbs down button on attribution dialog. [CHAR_LIMIT=NONE] -->
     <string name="ace_attribution_thumbs_down_button_accessibility_description">Thumbs down feedback button</string>
 
+    <string name="aod_media_previous">Previous track</string>
+    <string name="aod_media_play">Play</string>
+    <string name="aod_media_pause">Pause</string>
+    <string name="aod_media_next">Next track</string>
 </resources>

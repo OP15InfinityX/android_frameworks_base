@@ -86,6 +86,9 @@ public class DozeScreenState implements DozeMachine.Part {
     private final SelectedUserInteractor mSelectedUserInteractor;
     private final DozeInteractor mDozeInteractor;
 
+    private DozeMachine.State mCurrentState = DozeMachine.State.UNINITIALIZED;
+    private final Runnable mUpdateMediaScreenState = this::updateMediaScreenState;
+    private final Runnable mMediaControlsCallback = this::scheduleMediaScreenState;
     private int mPendingScreenState = Display.STATE_UNKNOWN;
     private SettableWakeLock mWakeLock;
 
@@ -113,6 +116,7 @@ public class DozeScreenState implements DozeMachine.Part {
         mDozeScreenBrightness = dozeScreenBrightness;
         mSelectedUserInteractor = selectedUserInteractor;
         mDozeInteractor = dozeInteractor;
+        mParameters.addAodMediaControlsCallback(mMediaControlsCallback);
 
         updateUdfpsController();
         if (mUdfpsController == null) {
@@ -131,10 +135,13 @@ public class DozeScreenState implements DozeMachine.Part {
     @Override
     public void destroy() {
         mAuthController.removeCallback(mAuthControllerCallback);
+        mParameters.removeAodMediaControlsCallback(mMediaControlsCallback);
+        mHandler.removeCallbacks(mUpdateMediaScreenState);
     }
 
     @Override
     public void transitionTo(DozeMachine.State oldState, DozeMachine.State newState) {
+        mCurrentState = newState;
         int screenState = newState.screenState(mParameters);
         mDozeHost.cancelGentleSleep();
 
@@ -217,6 +224,19 @@ public class DozeScreenState implements DozeMachine.Part {
         } else {
             applyScreenState(screenState);
         }
+    }
+
+    private void scheduleMediaScreenState() {
+        mHandler.removeCallbacks(mUpdateMediaScreenState);
+        mHandler.post(mUpdateMediaScreenState);
+    }
+
+    private void updateMediaScreenState() {
+        // Never illuminate a paused/pocket AOD or restore doze brightness during wake-up.
+        if (mCurrentState != DOZE_AOD || !mDozeHost.isDozing()) return;
+        mHandler.removeCallbacks(mApplyPendingScreenState);
+        mDozeHost.cancelGentleSleep();
+        applyScreenState(mCurrentState.screenState(mParameters));
     }
 
     private void applyPendingScreenState() {

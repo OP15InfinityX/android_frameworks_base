@@ -131,6 +131,7 @@ public final class DozeServiceHost implements DozeHost {
     private final AmbientDisplayConfiguration mAmbientDisplayConfiguration;
     private final AodDimInteractor mAodDimInteractor;
     private final SelectedUserInteractor mSelectedUserInteractor;
+    private final com.android.systemui.doze.AodMediaControls mAodMediaControls;
 
     @Inject
     public DozeServiceHost(DozeLog dozeLog, PowerManager powerManager,
@@ -153,7 +154,8 @@ public final class DozeServiceHost implements DozeHost {
             Context context,
             AmbientDisplayConfiguration ambientDisplayConfiguration,
             AodDimInteractor aodDimInteractor,
-            SelectedUserInteractor selectedUserInteractor) {
+            SelectedUserInteractor selectedUserInteractor,
+            com.android.systemui.doze.AodMediaControls aodMediaControls) {
         super();
         mDozeLog = dozeLog;
         mPowerManager = powerManager;
@@ -180,6 +182,7 @@ public final class DozeServiceHost implements DozeHost {
         mAmbientDisplayConfiguration = ambientDisplayConfiguration;
         mAodDimInteractor = aodDimInteractor;
         mSelectedUserInteractor = selectedUserInteractor;
+        mAodMediaControls = aodMediaControls;
     }
 
     // TODO: we should try to not pass status bar in here if we can avoid it.
@@ -196,6 +199,7 @@ public final class DozeServiceHost implements DozeHost {
         mStatusBarKeyguardViewManager = statusBarKeyguardViewManager;
         mNotificationShadeWindowViewController = notificationShadeWindowViewController;
         mAmbientIndicationContainer = ambientIndicationContainer;
+        mAodMediaControls.attach(notificationShadeWindowViewController.getView());
     }
 
 
@@ -280,6 +284,11 @@ public final class DozeServiceHost implements DozeHost {
         }
     }
 
+    @Override
+    public boolean isDozing() {
+        return mDozingRequested && mStatusBarStateController.isDozing();
+    }
+
     void updateDozing() {
         Assert.isMainThread();
 
@@ -304,6 +313,7 @@ public final class DozeServiceHost implements DozeHost {
         ScrimUtils.get().onDozingChanged(dozing);
         mDozeInteractor.setIsDozing(dozing);
         mStatusBarStateController.setIsDozing(dozing);
+        mAodMediaControls.setDozing(dozing);
     }
 
     @Override
@@ -390,6 +400,7 @@ public final class DozeServiceHost implements DozeHost {
         TraceUtils.trace("DozeServiceHost#dozeTimeTick", () -> {
             mDozeInteractor.dozeTimeTick();
             mAuthController.dozeTimeTick();
+            mAodMediaControls.dozeTimeTick();
             if (mAmbientIndicationContainer instanceof DozeReceiver) {
                 ((DozeReceiver) mAmbientIndicationContainer).dozeTimeTick();
             }
@@ -453,6 +464,17 @@ public final class DozeServiceHost implements DozeHost {
         dispatchTouchEventToAmbientIndicationContainer(screenX, screenY);
 
         mDozeInteractor.setLastTapToWakePosition(new Point((int) screenX, (int) screenY));
+    }
+
+    public boolean dispatchAodMediaTouch(MotionEvent event) {
+        return mAodMediaControls.dispatchTouch(event);
+    }
+
+    @Override
+    public boolean onAodMediaTap(float screenX, float screenY) {
+        if (screenX < 0 || screenY < 0) return false;
+        float scaleFactor = DisplayExtensionsKt.getDisplayScaleFactor(mContext.getDisplay());
+        return mAodMediaControls.dispatchSensorTap(screenX * scaleFactor, screenY * scaleFactor);
     }
 
     private void dispatchTouchEventToAmbientIndicationContainer(float screenX, float screenY) {

@@ -81,6 +81,7 @@ import java.util.HashSet;
 public class DozeServiceHostTest extends SysuiTestCase {
 
     private DozeServiceHost mDozeServiceHost;
+    @Mock private com.android.systemui.doze.AodMediaControls mAodMediaControls;
 
     @Mock private HeadsUpManager mHeadsUpManager;
     @Mock private ScrimController mScrimController;
@@ -129,7 +130,7 @@ public class DozeServiceHostTest extends SysuiTestCase {
                 mShadeLockscreenInteractor, mDozeInteractor,
                 mKosmos.getDeviceEntryFingerprintAuthInteractor(),
                 mKosmos.getTestScope(), mContextSpy, mAmbientDisplayConfiguration,
-                mAodDimInteractor, mSelectedUserInteractor);
+                mAodDimInteractor, mSelectedUserInteractor, mAodMediaControls);
 
         mDozeServiceHost.initialize(
                 mCentralSurfaces,

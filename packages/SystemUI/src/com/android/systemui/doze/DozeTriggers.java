@@ -341,8 +341,10 @@ public class DozeTriggers implements DozeMachine.Part {
                     return;
                 }
                 if (isDoubleTap || isTap) {
-                    mDozeHost.onSlpiTap(screenX, screenY);
-                    gentleWakeUp(pulseReason);
+                    if (!mDozeHost.onAodMediaTap(screenX, screenY)) {
+                        mDozeHost.onSlpiTap(screenX, screenY);
+                        gentleWakeUp(pulseReason);
+                    }
                 } else if (isPickup) {
                     if (shouldDropPickupEvent())  {
                         mDozeLog.traceSensorEventDropped(pulseReason, "keyguard occluded");

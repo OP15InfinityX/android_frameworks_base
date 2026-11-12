@@ -7803,7 +7803,13 @@ public final class Settings {
         public static final String ENABLE_ROTATION_BUTTON = "enable_rotation_button";
 
         /**
-         * Defines the screen-off animation to display
+         * Defines the screen-off animation to display.
+         * 0 = Fade (stock ColorFade behaviour, default)
+         * 1 = CRT (ElectronBeam)
+         * 2 = Scale (ElectronBeam)
+         * 3 = Iris (ElectronBeam)
+         * 4 = Desaturate (ElectronBeam)
+         * 5 = Shutter (ElectronBeam)
          * @hide
          */
         public static final String SCREEN_OFF_ANIMATION = "screen_off_animation";

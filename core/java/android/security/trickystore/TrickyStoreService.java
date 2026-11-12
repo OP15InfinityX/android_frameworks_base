@@ -755,6 +755,8 @@ public class TrickyStoreService {
             if (XPOSED_PACKAGES.contains(pkg)) continue;
             Mode mode = mPackageModes.get(pkg);
             if (mode == Mode.SKIP) continue;
+            // GENERATE needs a real keybox to sign the software certificate; without
+            // one the fallback would emit a key that chains to nothing.
             if (mode == Mode.GENERATE) return hasKeyboxes();
             if (mode == Mode.AUTO && hasKeyboxes() && isTeeBroken()) return true;
         }
